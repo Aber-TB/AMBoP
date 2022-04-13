@@ -173,7 +173,7 @@ fi
 
 echo -e "\e[1;33m [%] Starting read mapping checks. \e[0m"
 
-module load mbovis_tools/0.1
+module load mbovis_tools/0.2
 
 #Calculate reference genome coverage for each sample:
 if [ -s bamfile_coverage.list ]; then 
@@ -196,7 +196,7 @@ else
     done;
 fi
 
-#leave mbovis_tools/0.1 module loaded.
+#leave mbovis_tools/* module loaded.
 
 echo -e "\e[1;34m [%] Finished read mapping checks. \e[0m"
 
@@ -235,11 +235,15 @@ for i in $(ls ${MYPATH}/passed_files/*_sorted_nodups.bam | awk -F "/" '{print $N
 	echo -e "\e[1;35m [@] ${name} vcf has already been filtered. \e[0m";
     elif [ -s ${MYPATH}/variants/${name}_filtered.vcf.gz ]; then
         echo -e "\e[1;35m [@] ${name} vcf has already been filtered and compressed.\e[0m"
+    elif [ ${EXCLUDE} = true ]
+    	bcftools filter -i "DP>=${DP} & MQ>=${MQ} & DP4[2]>=${DP4F} & DP4[3]>=${DP4R} & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=${SUPPORT}" ${i}.vcf |
+    	variantpositionfiltering.py | 
+    	exclude_regions.py > ${name}_filtered.vcf;
+    	echo -e "\e[1;35m [@] Finished filtering variants for sample\e[0m \e[0;32m ${name} \e[0m";
     else 
-	bcftools filter -i "DP>=${DP} & MQ>=${MQ} & DP4[2]>=${DP4F} & DP4[3]>=${DP4R} & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=${SUPPORT}" ${i}.vcf |
-	variantpositionfiltering.py | 
-	exclude_regions.py > ${name}_filtered.vcf;
-	echo -e "\e[1;35m [@] Finished filtering variants for sample\e[0m \e[0;32m ${name} \e[0m";
+        bcftools filter -i "DP>=${DP} & MQ>=${MQ} & DP4[2]>=${DP4F} & DP4[3]>=${DP4R} & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=${SUPPORT}" ${i}.vcf |
+        variantpositionfiltering.py > ${name}_filtered.vcf;
+        echo -e "\e[1;35m [@] Finished filtering variants for sample\e[0m \e[0;32m ${name} \e[0m";
     fi;
 done
 

@@ -14,8 +14,8 @@ import sys
 import os 
 
 def main(): 
-    #vcf_file = Taken from stdin. 
-    gff_file = open("/ibers/ernie/home/jef11/aber_tb/reference_genome/mbovisAF212297_ref_functional_annotations.csv")
+    #vcf_file = Taken from stdin. - relative path which should work from within the GitHub repo 
+    gff_file = open("../../../../reference_genome/mbovisAF212297_ref_functional_annotations.csv")
 
     #First add lines into a list to iterate over them later. 
     lines = [] 
@@ -79,7 +79,7 @@ def main():
     #Write the file variants_in_functional_genes.csv.
     with open("./variants_in_functional_genes.csv", "w") as outfile:
         outfile.writelines("#Variant Position,Reference allele,Alternate allele,"
-                           "Number of Samples,Sample Names,SNP Effect,"    # Likely issue in sample names
+                           "Number of Samples,Sample Names,SNP Effect,"
                            "Effect Impact,Functional Effect,Codon Change,"
                            "Amino Acid Change,Gene locus Tag,Chromosome,"
                            "Source,Type,Start(nucl),End(nucl),"

@@ -1,0 +1,32 @@
+echo "misc_tools-0.1 - a collection of executable scripts and tools to carry out generic sequence analysis or manipulation of files. More help can be found by running the tool using the name as given below."
+echo -e "\n------------------------\n"
+echo "blast_length_filter.sh - Generic script to filter BLAST output based on sequence length."
+
+echo -e "\n------------------------\n"
+echo "blast_tophits.sh - Generic script to take the tophits of Blast output (must be format6)."
+
+echo -e "\n------------------------\n"
+echo "cumulative_coverage.py - Generic script to take input from stdin and print out the percentage of ref genome sites that has 5x, 10x and 20x coverage."
+
+echo -e "\n------------------------\n"
+echo "iTol_binary_annotation_maker.py - Generic script that will take a vcf file and output an iTOL annotation file that will create the 'Shape Plots' annotation for a corresponding tree."  
+
+echo -e "\n------------------------\n"
+echo "iTol_range_annotation_maker.py - Generic script that will take a csv file and output an iTOL annotation file that will create the 'Coloured Range' annotation, whereby leaves are coloured based on a provided category or label."
+
+echo -e "\n------------------------\n"
+echo "oneline.sh - a generic script to change a multilined FASTA file to a one lined FASTA file."
+
+echo -e "\n------------------------\n"
+echo "reversecomp.bash - a generic script to reverse complement given sequence."
+
+echo -e "\n------------------------\n"
+echo "subheader.sh - a generic script to print out an SGE submission file."
+
+echo -e "\n------------------------\n"
+echo "twoline.sh - a generic script to change a multilined FASTA file to a two lined FASTA file."
+
+echo -e "\n------------------------\n"
+echo "variantpositionfiltering.py - a generic tool to filter out any variants in a VCF file were the position is within 10 bp of another variant reported."
+
+echo -e "\n------------------------\n"
