@@ -1,4 +1,5 @@
 #!/bin/bash -l
+( #Start logging
 
 #This is the header that will print out the welcome message. It checks for adequate input and if not, prints usage. If a user provides "example.config" an example config file will be printed to screen.
 if [ "$#" -eq 0 ]; then
@@ -224,95 +225,185 @@ done
 
 echo -e "\e[1;34m [%] Finished variant calling. \e[0m"
 
-#Now for each file, filter the vcfs based on some parameters which can be set by the user. 
+###############################################################
 
-echo -e "\e[1;33m [%] Starting vcf file filtering. \e[0m"
+echo -e "\e[1;33m\n ------------ \n Starting vcf file compression and merging. \n ------------ \n\e[0m"
 
 cd ${MYPATH}/variants
 
-for i in $(ls ${MYPATH}/passed_files/*_sorted_nodups.bam | awk -F "/" '{print $NF}' | cut -d "_" -f1 | sort | uniq); do
-    if [ -s ${MYPATH}/variants/${name}_filtered.vcf ]; then 
-	echo -e "\e[1;35m [@] ${name} vcf has already been filtered. \e[0m";
-    elif [ -s ${MYPATH}/variants/${name}_filtered.vcf.gz ]; then
-        echo -e "\e[1;35m [@] ${name} vcf has already been filtered and compressed.\e[0m"
-    elif [ ${EXCLUDE} = true ]
-    	bcftools filter -i "DP>=${DP} & MQ>=${MQ} & DP4[2]>=${DP4F} & DP4[3]>=${DP4R} & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=${SUPPORT}" ${i}.vcf |
-    	variantpositionfiltering.py | 
-    	exclude_regions.py > ${name}_filtered.vcf;
-    	echo -e "\e[1;35m [@] Finished filtering variants for sample\e[0m \e[0;32m ${name} \e[0m";
+for i in $(ls ${MYPATH}/passed_files/* | awk -F "/" '{print $NF}' | cut -d "_" -f1 | sort | uniq); do 
+    if [ -f ${i}.vcf ]; then 
+        bgzip ${i}.vcf || { echo -e "\e[1;31mFailed to compress vcf file.\e[0m"; exit ; };
+    elif [ -f ${i}.vcf.gz ]; then 
+	echo -e "\e[1;35m${i} already compressed.\e[0m"; 
     else 
-        bcftools filter -i "DP>=${DP} & MQ>=${MQ} & DP4[2]>=${DP4F} & DP4[3]>=${DP4R} & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=${SUPPORT}" ${i}.vcf |
-        variantpositionfiltering.py > ${name}_filtered.vcf;
-        echo -e "\e[1;35m [@] Finished filtering variants for sample\e[0m \e[0;32m ${name} \e[0m";
-    fi;
-done
-
-echo -e "\e[1;34m [%] Finished filtering vcf files. \e[0m"
-
-#Then compress the files, index and then merge the samples into one vcf file:
-
-echo -e "\e[1;33m [%] Starting filtered vcf file compression and merging. \e[0m"
-
-for i in $(ls ${MYPATH}/passed_files/*_sorted_nodups.bam | awk -F "/" '{print $NF}' | cut -d "_" -f1 | sort | uniq); do 
-    if [ -s ${MYPATH}/variants/${i}_filtered.vcf ]; then
-        bgzip ${i}_filtered.vcf || { echo -e "\e[1;31mFailed to compress vcf file.\e[0m"; exit ; };
-    elif [ -f ${MYPATH}/variants/${i}_filtered.vcf.gz ]; then 
-	echo -e "\e[1;35m [@] ${i} already compressed.\e[0m"; 
-    else
-	echo -e "\e[1;31m [!] ${i} - no vcf or compressed vcf found, check variant calling completed correctly.\e[0m"; exit; 
+	echo -e "\e[1;31m${i} - no vcf or compressed vcf found, check variant calling completed correctly.\e[0m"; 
     fi; 
 done
 
-for i in $(ls *_filtered.vcf.gz); do 
+for i in *vcf.gz; do 
     if [ -f ${i}.csi ]; then 
-	echo -e "\e[1;35m [@] ${i} already indexed \e[0m"; 
+	 echo -e "\e[1;35m ${i} already indexed \e[0m"; 
     else 
-	{ bcftools index ${i} || echo -e "\e[1;31m [!] Failed to index compressed vcf file.\e[0m"; exit; } ;
+	 bcftools index ${i} || { echo -e "\e[1;31mFailed to index compressed vcf file.\e[0m"; exit; } ;
     fi; 
 done
 
-ls *_filtered.vcf.gz > files_to_merge.list
+ls *vcf.gz > files_to_merge.list
 
-[ -f ${UNIQ}_merged.vcf.gz ] && echo -e "\e[1;35m [@] ${UNIQ}_merged.vcf.gz already exists\e[0m" || { 
-    ls *.vcf.gz | split -l 500 - subset_vcfs; 
-    for i in $(ls subset_vcf*); do 
-	bcftools merge -l ${i} -o merged_${i}.vcf.gz; 
-	bcftools index merged_${i}.vcf.gz; 
-    done; 
-    ls merged_*.vcf.gz > files_to_merge.list 
-    bcftools merge -l files_to_merge.list -o ${UNIQ}_merged.vcf.gz ;
-}
+[ -f ${UNIQ}_merged.vcf.gz ] && echo -e "\e[1;35m${UNIQ}_merged.vcf.gz already exists\e[0m" || bcftools merge -l files_to_merge.list -o ${UNIQ}_merged.vcf.gz 
 
-#Add in file check here, else it will continue to the end and give lots of confusing outputs.
-[ -s ${UNIQ}_merged.vcf.gz ] || { echo -e "\e[1;31m [!] Compressed merged vcf file is empty or does not exist, exiting."; exit ;}
+echo -e "\e[1;34m\n ------------ \n  Finished vcf file merging. \n ------------ \n\e[0m"
 
-echo -e "\e[1;34m [%] Finished vcf file merging. \e[0m"
+
+#Now filter the merged file:
+
+echo -e "\e[1;33m\n ------------ \n Starting merged vcf file filtering. \n ------------ \n\e[0m"
+
+[ -s ${UNIQ}_filtered_merged.vcf ] && echo -e "\e[1;35m${UNIQ}_filtered_merged.vcf already exists.\e[0m" || 
+bcftools filter -i 'DP>=30 & MQ>=30 & DP4[2]>=4 & DP4[3]>=4 & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=0.95' ${UNIQ}_merged.vcf.gz |
+variantpositionfiltering.py | 
+exclude_regions.py > ${UNIQ}_filtered_merged.vcf
+
+echo -e "\e[1;34m\n ------------ \n  Finished filtering merged vcf file. \n ------------ \n\e[0m"
+
 
 #then make the Fasta files for each sample and put them in the corresponding directory and catenate them into one. Also rename the genomes in the fasta files so that it contains the sample name, otherwise they won't be distinguishable in subsequent analyses.
 
-echo -e "\e[1;33m [%] Starting Fasta file creation. \e[0m"
+echo -e "\e[1;33m\n ------------ \n Starting Fasta file creation. \n ------------ \n\e[0m"
 
-[ -s ${UNIQ}_merged.vcf.gz ] && echo -e "\e[1;35m [@] ${UNIQ}_merged.vcf.gz already exists\e[0m" || bgzip ${UNIQ}_merged.vcf
+[ -s ${UNIQ}_filtered_merged.vcf.gz ] && echo -e "\e[1;35m${UNIQ}_filtered_merged.vcf.gz already exists\e[0m" || bgzip ${UNIQ}_filtered_merged.vcf
 
-[ -s ${UNIQ}_merged.vcf.gz.csi ] && echo -e "\e[1;35m [@] ${UNIQ}_merged.vcf.gz already indexed\e[0m" || bcftools index ${UNIQ}_merged.vcf.gz 
+[ -s ${UNIQ}_filtered_merged.vcf.gz.csi ] && echo -e "\e[1;35m${UNIQ}_filtered_merged.vcf.gz already indexed\e[0m" || bcftools index ${UNIQ}_filtered_merged.vcf.gz 
 
-for i in $(bcftools query -l ${UNIQ}_merged.vcf.gz); do 
+for i in $(bcftools query -l ${UNIQ}_filtered_merged.vcf.gz); do 
     name=$(echo ${i} | cut -d "_" -f1);
     if [ -s ${MYPATH}/fasta_aln/${name}.fasta ]; then
-	echo -e "\e[1;35m [@] ${MYPATH}/fasta_aln/${name}.fasta already exists.\e[0m"
+	echo -e "\e[1;35m${MYPATH}/fasta_aln/${name}.fasta already exists.\e[0m"
     else
-	echo -e "\e[1;35m [@] Making Fasta for ${i}\e[0m"; 
+	echo -e "\e[1;33mMaking Fasta for ${i}\e[0m"; 
         bcftools consensus \
-	--fasta-ref ${REFPATH} \
+	--fasta-ref $REFPATH \
 	--sample ${i}  \
-	${UNIQ}_merged.vcf.gz | 
-	sed "s/^>/>${name} /" > ${MYPATH}/fasta_aln/${name}.fasta || { echo -e "\e[1;31m [!] Cannot create fasta files. Check MYPATH variable.\e[0m"; exit; }; 
+	${UNIQ}_filtered_merged.vcf.gz | 
+	sed "s/^>/>${name} /" > $MYPATH/fasta_aln/${name}.fasta || { echo -e "\e[1;31mCannot create fasta files. Check MYPATH variable.\e[0m"; exit; }; 
 	fi;
 done
 
-cd ${MYPATH}/fasta_aln
+cd $MYPATH/fasta_aln
 
-cat ${REFPATH} *.fasta > ${UNIQ}.aln
+cat $REFPATH *.fasta > $UNIQ.aln
+
+#################################################################
+
+
+
+
+
+#Now for each file, filter the vcfs based on some parameters which can be set by the user. 
+
+# echo -e "\e[1;33m [%] Starting vcf file filtering. \e[0m"
+
+# cd ${MYPATH}/variants
+
+# for i in $(ls ${MYPATH}/passed_files/*_sorted_nodups.bam | awk -F "/" '{print $NF}' | cut -d "_" -f1 | sort | uniq); do
+#     if [ -s ${MYPATH}/variants/${name}_filtered.vcf ]; then 
+# 	echo -e "\e[1;35m [@] ${name} vcf has already been filtered. \e[0m";
+#     elif [ -s ${MYPATH}/variants/${name}_filtered.vcf.gz ]; then
+#         echo -e "\e[1;35m [@] ${name} vcf has already been filtered and compressed.\e[0m"
+#     elif [ ${EXCLUDE} = true ] ; then
+#     	bcftools filter -i "DP>=${DP} & MQ>=${MQ} & DP4[2]>=${DP4F} & DP4[3]>=${DP4R} & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=${SUPPORT}" ${i}.vcf |
+#     	variantpositionfiltering.py | 
+#     	exclude_regions.py > ${name}_filtered.vcf;
+#     	echo -e "\e[1;35m [@] Finished filtering variants for sample\e[0m \e[0;32m ${name} \e[0m";
+#     else 
+#         bcftools filter -i "DP>=${DP} & MQ>=${MQ} & DP4[2]>=${DP4F} & DP4[3]>=${DP4R} & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=${SUPPORT}" ${i}.vcf |
+#         variantpositionfiltering.py > ${name}_filtered.vcf;
+#         echo -e "\e[1;35m [@] Finished filtering variants for sample\e[0m \e[0;32m ${name} \e[0m";
+#     fi;
+# done
+
+# echo -e "\e[1;34m [%] Finished filtering vcf files. \e[0m"
+
+#Then compress the files, index and then merge the samples into one vcf file:
+
+# echo -e "\e[1;33m [%] Starting filtered vcf file compression and merging. \e[0m"
+
+
+# #cd ${MYPATH}/variants
+
+# # for i in $(ls ${MYPATH}/passed_files/* | awk -F "/" '{print $NF}' | cut -d "_" -f1 | sort | uniq); do 
+# #     if [ -f ${i}.vcf ]; then 
+# #         bgzip ${i}.vcf || { echo -e "\e[1;31mFailed to compress vcf file.\e[0m"; exit ; };
+# #     elif [ -f ${i}.vcf.gz ]; then 
+# # 	echo -e "\e[1;35m${i} already compressed.\e[0m"; 
+# #     else 
+# # 	echo -e "\e[1;31m${i} - no vcf or compressed vcf found, check variant calling completed correctly.\e[0m"; 
+# #     fi; 
+# # done
+
+# for i in $(ls ${MYPATH}/passed_files/*_sorted_nodups.bam | awk -F "/" '{print $NF}' | cut -d "_" -f1 | sort | uniq); do 
+#     if [ -s ${MYPATH}/variants/${i}_filtered.vcf ]; then
+#         bgzip ${i}_filtered.vcf || { echo -e "\e[1;31mFailed to compress vcf file.\e[0m"; exit ; };
+#     elif [ -f ${MYPATH}/variants/${i}_filtered.vcf.gz ]; then 
+# 	echo -e "\e[1;35m [@] ${i} already compressed.\e[0m"; 
+#     else
+# 	echo -e "\e[1;31m [!] ${i} - no vcf or compressed vcf found, check variant calling completed correctly.\e[0m"; exit; 
+#     fi; 
+# done
+
+# for i in $(ls *_filtered.vcf.gz); do 
+#     if [ -f ${i}.csi ]; then 
+# 	echo -e "\e[1;35m [@] ${i} already indexed \e[0m"; 
+#     else 
+# 	{ bcftools index ${i} || echo -e "\e[1;31m [!] Failed to index compressed vcf file.\e[0m"; exit; } ;
+#     fi; 
+# done
+
+# ls *_filtered.vcf.gz > files_to_merge.list
+
+# [ -f ${UNIQ}_merged.vcf.gz ] && echo -e "\e[1;35m [@] ${UNIQ}_merged.vcf.gz already exists\e[0m" || { 
+#     ls *.vcf.gz | split -l 500 - subset_vcfs; 
+#     for i in $(ls subset_vcf*); do 
+# 	bcftools merge -l ${i} -o merged_${i}.vcf.gz; 
+# 	bcftools index merged_${i}.vcf.gz; 
+#     done; 
+#     ls merged_*.vcf.gz > files_to_merge.list 
+#     bcftools merge -l files_to_merge.list -o ${UNIQ}_merged.vcf.gz ;
+# }
+
+# #Add in file check here, else it will continue to the end and give lots of confusing outputs.
+# [ -s ${UNIQ}_merged.vcf.gz ] || { echo -e "\e[1;31m [!] Compressed merged vcf file is empty or does not exist, exiting."; exit ;}
+
+# echo -e "\e[1;34m [%] Finished vcf file merging. \e[0m"
+
+# #then make the Fasta files for each sample and put them in the corresponding directory and catenate them into one. Also rename the genomes in the fasta files so that it contains the sample name, otherwise they won't be distinguishable in subsequent analyses.
+
+# echo -e "\e[1;33m [%] Starting Fasta file creation. \e[0m"
+
+# [ -s ${UNIQ}_merged.vcf.gz ] && echo -e "\e[1;35m [@] ${UNIQ}_merged.vcf.gz already exists\e[0m" || bgzip ${UNIQ}_merged.vcf
+
+# [ -s ${UNIQ}_merged.vcf.gz.csi ] && echo -e "\e[1;35m [@] ${UNIQ}_merged.vcf.gz already indexed\e[0m" || bcftools index ${UNIQ}_merged.vcf.gz 
+
+# for i in $(bcftools query -l ${UNIQ}_merged.vcf.gz); do 
+#     name=$(echo ${i} | cut -d "_" -f1);
+#     if [ -s ${MYPATH}/fasta_aln/${name}.fasta ]; then
+# 	echo -e "\e[1;35m [@] ${MYPATH}/fasta_aln/${name}.fasta already exists.\e[0m"
+#     else
+# 	echo -e "\e[1;35m [@] Making Fasta for ${i}\e[0m"; 
+#         bcftools consensus \
+# 	--fasta-ref ${REFPATH} \
+# 	--sample ${i}  \
+# 	${UNIQ}_merged.vcf.gz | 
+# 	sed "s/^>/>${name} /" > ${MYPATH}/fasta_aln/${name}.fasta || { echo -e "\e[1;31m [!] Cannot create fasta files. Check MYPATH variable.\e[0m"; exit; }; 
+# 	fi;
+# done
+
+# cd ${MYPATH}/fasta_aln
+
+# cat ${REFPATH} *.fasta > ${UNIQ}.aln
+
+#######################################
 
 
 echo -e "\e[1;34m [%] Finished Fasta file creation. Alignment file has been created. \e[0m"
@@ -364,7 +455,8 @@ module unload iqtree
 echo -e "\e[1;34m [%] Finished Tree building with IQ-Tree. \n\e[0m"
 echo -e "\e[1;36m [?] Final tree file is in file ${UNIQ}.treefile \e[0m"
 
-echo -e "\e[1;36m [?] iTOL annotation files to add colour to trees can be created automatically using a metadata file and iTol_range_annotation_maker.py in the misc_tools-0.1 module. Visualisation of presence or absence of SNPs in functional genes can be done using a binary matrix annotation add onto the tree, for which the tool iTol_binary_annotation_maker.py exists in the misc_tools-0.1 module.\e[0m"
+echo -e "\e[1;36m [?] iTOL annotation files to add colour to trees can be created automatically using a metadata file and iTol_range_annotation_maker.py in the misc_tools-* module. Visualisation of presence or absence of SNPs in functional genes can be done using a binary matrix annotation add onto the tree, for which the tool iTol_binary_an
+notation_maker.py exists in the misc_tools-* module.\e[0m"
 
 #Run snpEff to look at SNP Effects. Do this on the merged vcf file, and receive three output files - a html, a gene file and a designated output file in VCF format. Then also run the script to return two files, one (all_interesting_pos.tsv) containing the positions of the variants, reference allele, alternate allele, the number of samples and list of sample names (simplified VCF) and another file (variants_in_functional_genes.csv) which contains those variant positions that fall within genes/coding regions, with all the information from the gff and eggnog annotations provided for each gene that the variants are is in.
 
@@ -380,7 +472,7 @@ echo -e "\e[1;36m [?] Note: snpEff output can be found in ${UNIQ}_snpeff.out. Th
 if [ $(cat all_interesting_pos.tsv 2>/dev/null | wc -l) -gt 1 ] && [ $(cat variants_in_functional_genes.csv 2>/dev/null | wc -l) -gt 1 ]; then 
     echo -e "\e[1;35m [@] variants_in_functional_genes.csv and all_interesting_pos.tsv output files are already present, check they are complete or remove and rerun AMBoP.\e[0m";
 else
-    cat ${UNIQ}_snpEff.out | functional_variants.py;
+    cat ${UNIQ}_snpEff.out  | functional_variants.py ${REF_FUNC_ANNO}; # Passing this variable here
 fi
 
 echo -e "\e[1;34m [%] Finished getting effects and functional annotations for variants in coding regions. \n\e[0m"  
@@ -418,3 +510,6 @@ cp ${MYPATH}/bams/bamfile_coverage.list ./ && rm -f ${MYPATH}/bams/bamfile_cover
 echo -e "\e[1;34m [%] Finished clear up phase.\e[0m"
 echo -e "\e[1;36m [?] Final files can be found here: ${MYPATH}/final_files \e[0m"
 echo -e "\e[1;36m [?] AMBoP experiment ${UNIQ} Complete.\e[0m"
+
+
+) | tee ${LOGFILE} # End log

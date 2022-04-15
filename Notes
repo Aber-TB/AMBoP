@@ -8,4 +8,9 @@ Added GitHub link to menu of AMBoP.
 
 Added user control for excluded hyper-variable regions.
 
- 
+Started replacing fixed filepaths with user defined paths - Also moving paths into the AMBoP GitHub local dir 
+
+
+Will add AMBoP.log 
+
+Minor bugs remain

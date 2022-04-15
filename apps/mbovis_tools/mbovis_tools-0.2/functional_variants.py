@@ -15,7 +15,9 @@ import os
 
 def main(): 
     #vcf_file = Taken from stdin. - relative path which should work from within the GitHub repo 
-    gff_file = open("../../../../reference_genome/mbovisAF212297_ref_functional_annotations.csv")
+    ref_functional_annotations =sys.argv[1] #= open("../../../../reference_genome/mbovisAF212297/mbovisAF212297_ref_functional_annotations.csv")
+    ref_functional_annotations = open(ref_functional_annotations,'r')
+    print(ref_functional_annotations)
 
     #First add lines into a list to iterate over them later. 
     lines = [] 
@@ -71,7 +73,8 @@ def main():
 
     #make dict of gene start and end as key and rest of line in file as value. 
     annotations_dict = {}
-    for gene in (gene for gene in gff_file if not gene.startswith('#')):
+    for gene in (gene for gene in ref_functional_annotations if not gene.startswith('#')):
+    	print(gene) # debugging
         startpos = int(gene.strip().split(",")[4]) 
         endpos = int(gene.strip().split(",")[5])
         annotations_dict[startpos, endpos] = gene
