@@ -15,8 +15,9 @@ import os
 
 def main(): 
     #vcf_file = Taken from stdin. - relative path which should work from within the GitHub repo 
-    ref_functional_annotations =sys.argv[1] #= open("../../../../reference_genome/mbovisAF212297/mbovisAF212297_ref_functional_annotations.csv")
-    ref_functional_annotations = open(ref_functional_annotations,'r')
+    ref_functional_annotations = sys.argv[1] #= open("../../../../reference_genome/mbovisAF212297/mbovisAF212297_ref_functional_annotations.csv")
+    ref_functional_annotations = open(ref_functional_annotations)
+    print("HERE - ref func")
     print(ref_functional_annotations)
 
     #First add lines into a list to iterate over them later. 
@@ -30,6 +31,7 @@ def main():
         if line.startswith('#CHROM'): 
             #get column header names from header. Note that index 9:end will be sample names.
             sample_list = line.strip().split("\t") 
+            sample_list = sample_list[9:] # Remove those first 9 non-sample IDs
         elif not line.startswith("##"):
             #get variant info from each line
             position = line.strip().split("\t")[1]
@@ -55,9 +57,9 @@ def main():
             samples_with_var = []
             #For each sample, get the file name, if it has the variant, add to a 
             #list and count the number of samples for each variant.
-            for sample in GTPL:
+            for idx, sample in enumerate(GTPL):
                 if sample != ".:.":
-                    samplename = sample_list[GTPL.index(sample)+9].split("_")[0]
+                    samplename = sample_list[idx].split("_")[0] # +9 to accord for issue above with making sample_list
                     samples_with_var.append(samplename)
                     number_of_samples = [str(len(samples_with_var))]
             var_dict[position] = reference + alternate + number_of_samples + samples_with_var + EFF
@@ -74,7 +76,7 @@ def main():
     #make dict of gene start and end as key and rest of line in file as value. 
     annotations_dict = {}
     for gene in (gene for gene in ref_functional_annotations if not gene.startswith('#')):
-    	print(gene) # debugging
+        print(gene) # debugging
         startpos = int(gene.strip().split(",")[4]) 
         endpos = int(gene.strip().split(",")[5])
         annotations_dict[startpos, endpos] = gene
