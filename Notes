@@ -14,3 +14,7 @@ Started replacing fixed filepaths with user defined paths - Also moving paths in
 Will add AMBoP.log 
 
 Minor bugs remain
+
+Moving required datafiles into their own directories 
+
+Added logging example to splash screen.
