@@ -1,5 +1,6 @@
 #!/bin/bash -l
 
+now=$(date)
 
 #This is the header that will print out the welcome message. It checks for adequate input and if not, prints usage. If a user provides "example.config" an example config file will be printed to screen.
 if [ "$#" -eq 0 ]; then
@@ -7,11 +8,12 @@ if [ "$#" -eq 0 ]; then
     echo "Aberystwyth M. bovis Pipeline (AMBoP)."
     echo "Version 1.5.1"
     echo "GitHub: https://github.com/Aber-TB/AMBoP"
+    echo "Current Time: $now"
     echo "Takes raw sequence data, finds SNPs, outputs functional information about these SNPs and builds trees."
     echo ""
     echo "Usage:"
     echo "AMBoP <file.config | example.config>"
-    echo "Use '> <log.file>' to produce runtime logfile"
+    echo "Use '&> <log.file>' to produce runtime logfile"
     echo "Check and edit the AMBoP example config file and specify this file when executing AMBoP."
     exit
 elif [ "$1" = "example.config" ]; then
@@ -21,6 +23,7 @@ fi
 
 #This is the start of the output file:
 echo -e "    ___    __  _______        ____\n   /   |  /  |/  / __ )____  / __ \\n  / /| | / /|_/ / __  / __ \/ /_/ /\n / ___ |/ /  / / /_/ / /_/ / ____/ \n/_/  |_/_/  /_/_____/\____/_/      "
+echo -e "Current Time: $now"
 echo -e " This is the output file for running the Aberystwyth M. bovis Pipeline (AMBoP)."
 echo -e " Output is colour and symbol coded for easy readability. To see check points, use grep \"[%]\" your.output. To see errors, use grep \"[!]\" your.output. To see advice about what to do next, use grep \"[?]\" your.output. To see some extra information about sample progress, use grep \"[@]\" your.output."
 echo -e "\e[1;31m Red text means an error has occured or something needs checking or fixing. These lines start with [!].\e[0m"

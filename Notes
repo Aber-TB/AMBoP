@@ -17,4 +17,8 @@ Minor bugs remain
 
 Moving required datafiles into their own directories 
 
-Added logging example to splash screen.
+Added logging example to splash screen - And current time to splash and runtime output
+
+'&> <log,file>' works for sending runtime to file
+
+ 
