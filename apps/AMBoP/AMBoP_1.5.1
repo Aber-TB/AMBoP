@@ -436,9 +436,17 @@ module load RAxML/8.2.12
 [ -f ../tree/${UNIQ}.snp_sites.aln ] && echo -e "\e[1;35m [@] ${UNIQ}.snp_sites.aln already copied.\e[0m" || cp ${UNIQ}.snp_sites.aln ../tree/
 
 cd ../tree
-[ -d RAxML ] || mkdir RAxML
+[ -d RAxML ] || mkdir RAxML 
+
 
 [ -s ${MYPATH}/tree/RAxML/RAxML_bestTree.${UNIQ} ] || { raxmlHPC-PTHREADS-SSE3 -T ${THREADS} -f a -p 12345 -x 12345 -# 100 -m GTRCAT -s ${UNIQ}.snp_sites.aln -n ${UNIQ} -w ${MYPATH}/tree/RAxML || echo -e "\e[1;31m [!] RAxML did not run successfully. Check required file ${UNIQ}/snp_sites.aln is present in the tree directory. Alternatively, if AMBoP was cancelled prematurely, remove all tree files and run again.\e[0m"; }; 
+
+if ${GENOME_TREE} == true; then
+    echo -e "\e[1;33m [%] Starting FULL GENOME Tree building with RAxML.\e[0m"
+	{ raxmlHPC-PTHREADS-SSE3 -T ${THREADS} -f a -p 12345 -x 12345 -# 100 -m GTRCAT -s ${UNIQ}.aln -n ${UNIQ}_Full_Genome -w ${MYPATH}/tree/RAxML || echo -e "\e[1;31m [!] RAxML did not run successfully. Check required file ${UNIQ}.aln is present in the tree directory. Alternatively, if AMBoP was cancelled prematurely, remove all tree files and run again.\e[0m"; }; 
+fi
+
+
 module unload RAxML;  
 echo -e "\e[1;34m [%] Finished Tree building with RAxML. \n\e[0m";
 echo -e "\e[1;36m [?] Final tree file is in file RAxML_bipartitionsBranchLabels.${UNIQ} \e[0m"
