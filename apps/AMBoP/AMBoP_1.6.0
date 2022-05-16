@@ -1,0 +1,540 @@
+#!/bin/bash -l
+
+now=$(date)
+
+#This is the header that will print out the welcome message. It checks for adequate input and if not, prints usage. If a user provides "example.config" an example config file will be printed to screen.
+if [ "$#" -eq 0 ]; then
+    echo -e "\e[1;35m     ___    __  _______        ____\n   /   |  /  |/  / __ )____  / __ \\n  / /| | / /|_/ / __  / __ \/ /_/ /\n / ___ |/ /  / / /_/ / /_/ / ____/ \n/_/  |_/_/  /_/_____/\____/_/      \e[0m"
+    echo "Aberystwyth M. bovis Pipeline (AMBoP)."
+    echo "Version 1.5.1"
+    echo "GitHub: https://github.com/Aber-TB/AMBoP"
+    echo "Current Time: $now"
+    echo "Takes raw sequence data, finds SNPs, outputs functional information about these SNPs and builds trees."
+    echo ""
+    echo "Usage:"
+    echo "AMBoP <file.config | example.config>"
+    echo "Use '&> <log.file>' to produce runtime logfile"
+    echo "Check and edit the AMBoP example config file and specify this file when executing AMBoP."
+    exit
+elif [ "$1" = "example.config" ]; then
+    cat /ibers/repository03/groups/aber_tb/AMBoP/apps/AMBoP/example.config;
+    exit
+fi
+
+#This is the start of the output file:
+echo -e "    ___    __  _______        ____\n   /   |  /  |/  / __ )____  / __ \\n  / /| | / /|_/ / __  / __ \/ /_/ /\n / ___ |/ /  / / /_/ / /_/ / ____/ \n/_/  |_/_/  /_/_____/\____/_/      "
+echo -e "Current Time: $now"
+echo -e " This is the output file for running the Aberystwyth M. bovis Pipeline (AMBoP)."
+echo -e " Output is colour and symbol coded for easy readability. To see check points, use grep \"[%]\" your.output. To see errors, use grep \"[!]\" your.output. To see advice about what to do next, use grep \"[?]\" your.output. To see some extra information about sample progress, use grep \"[@]\" your.output."
+echo -e "\e[1;31m Red text means an error has occured or something needs checking or fixing. These lines start with [!].\e[0m"
+echo -e "\e[1;33m Yellow text shows which stage has started. These lines start with [%].\e[0m"
+echo -e "\e[1;34m Blue text shows which stage has completed. These lines start with [%]. \e[0m"
+echo -e "\e[1;35m Purple text shows some extra information, often just saying that files are present if this is being rerun. These lines start with [@].\e[0m"
+echo -e "\e[1;36m Cyan text shows advice about what to do next. These lines start with [?]. \e[0m"
+echo -e "\e[1;32m Green text may be used to highlight a sample. \e[0m"
+echo -e " White text is output from tools or programs, which may or may not have colours too.\n\n\n"
+
+#Source the config file supplied so that the variables are available:
+source $1
+echo -e "\e[1;35m [@] Path to output set to: ${MYPATH}\e[0m"
+echo -e "\e[1;35m [@] Path to raw data files set to: ${DATAPATH}\e[0m"
+echo -e "\e[1;35m [@] Forward read pattern is ${FORWARDPATTERN} and reverse read pattern is ${REVERSEPATTERN}.\e[0m"
+echo -e "\e[1;35m [@] Path to reference genome file set to: ${REFPATH}\e[0m"
+echo -e "\e[1;35m [@] Unique file names set to: ${UNIQ}\e[0m"
+echo -e "\e[1;35m [@] Number of threads set to: ${THREADS}\e[0m"
+echo -e "\e[1;35m [@] $(date)\e[0m"
+
+echo -e "\e[1;33m [%] Starting... \e[0m"
+
+#Check whether directories exist, if not, make some directories 
+
+[ -d ${MYPATH}/trimmed_reads ] && echo -e "\e[1;35m [@] Directory trimmed_reads exists.\e[0m" || mkdir ${MYPATH}/trimmed_reads #for the trimmed reads
+[ -d ${MYPATH}/bams ] && echo -e "\e[1;35m [@] Directory bams exists.\e[0m" || mkdir ${MYPATH}/bams  #for the bams after alignment to genome
+[ -d ${MYPATH}/passed_files ] && echo -e "\e[1;35m [@] Directory passed_files exists.\e[0m" || mkdir ${MYPATH}/passed_files #for bam files that pass the coverage filter.
+[ -d ${MYPATH}/variants ] && echo -e "\e[1;35m [@] Directory variants exists.\e[0m" || mkdir ${MYPATH}/variants #for the vcf files
+[ -d ${MYPATH}/variants/functional ] && echo -e "\e[1;35m [@] Directory functional exists.\e[0m" || mkdir ${MYPATH}/variants/functional #for those variants involved in functional genes
+[ -d ${MYPATH}/fasta_aln ] && echo -e "\e[1;35m [@] Directory fasta_aln exists.\e[0m" || mkdir ${MYPATH}/fasta_aln #for the fastas and the aligned files
+[ -d ${MYPATH}/tree ] && echo -e "\e[1;35m [@] Directory tree exists.\e[0m" || mkdir ${MYPATH}/tree  #for the phylogenetic tree files
+
+#trim data using Trimmomatic v0.39 with settings removing universal Illumina adaptors, minimum length of 50, sliding window size 3 with average score of 20 and average quality of 20.
+
+echo -e "\e[1;33m [%] Beginning read trimming. \e[0m"
+
+module load trimmomatic/0.39
+
+cd ${MYPATH}/trimmed_reads
+
+ln -s ${ADAPTERS} #symbolically link the adapter fasta file so Trimmomatic can find it.
+
+
+
+java -version #make a note of the java version. 
+
+#check $PATTERN files exist:
+if [ $(ls -l ${DATAPATH}/*${FORWARDPATTERN} 2>/dev/null | awk '{if ($5 != 0) print $9}' | wc -l) -lt 1 ]; then
+    echo -e "\e[1;31m [!] $FORWARDPATTERN and $REVERSEPATTERN files not found, check pattern provided in config file.\e[0m"; 
+    exit ;
+else
+    echo -e "\e[1;35m [@] $(ls ${DATAPATH}/*${FORWARDPATTERN} | wc -l) forward files found.\e[0m";
+    echo -e "\e[1;35m [@] $(ls ${DATAPATH}/*${REVERSEPATTERN} | wc -l) reverse files found.\e[0m"
+fi
+
+for i in $(ls ${DATAPATH}/*${FORWARDPATTERN}); do
+    file=$(echo ${i} | awk -F "/" '{print $NF}' | cut -d "_" -f1);    
+    #Do a quick check to see if there are any non-empty trim-paired files, like if the script has been run before to save time overwriting.
+    if [ -s ${MYPATH}/trimmed_reads/${file}_1_trim_paired.fastq.gz ]; then 
+	echo -e "\e[1;35m [@] ${file} already trimmed.\e[0m"; 
+    else  
+	trimmomatic PE -threads ${THREADS} \
+		${DATAPATH}/${file}*${FORWARDPATTERN} \
+		${DATAPATH}/${file}*${REVERSEPATTERN} \
+		${file}_1_trim_paired.fastq.gz \
+		${file}_1_trim_unpaired.fastq.gz \
+		${file}_2_trim_paired.fastq.gz \
+		${file}_2_trim_unpaired.fastq.gz \
+		${ILLUMINACLIP} \
+		${SLIDINGWINDOW} \
+		${MINLEN} \
+		${AVGQUAL} ||
+	exit; 
+	echo -e "\e[1;35m [@] Finished trimming sample\e[0m \e[0;32m ${file} \e[0m";
+    fi;
+done
+
+echo -e "\e[1;33m [%] Removing unecessary unpaired Trimmomatic files...\e[0m"
+rm -rf *_1_trim_unpaired.fast.gz *_2_trim_unpaired.fastq.gz
+
+module unload trimmomatic/0.39
+
+echo -e "\e[1;34m [%] Trimmomatic finished. \e[0m"
+
+#align paired end reads to reference genome and use Samtools to handle file and keep only primary alignments.
+
+echo -e "\e[1;33m [%] Aligning samples to reference genome. \e[0m"
+
+module load bwa/0.7.17
+module load samtools/1.5
+
+#Check whether index files are present, if not create them:
+if [ -s ${REFPATH}.amb ] && [ -s ${REFPATH}.ann ] && [ -s ${REFPATH}.bwt ] && [ -s ${REFPATH}.pac ] && [ -s ${REFPATH}.sa ]; then
+    echo -e "\e[1;35m [@] Reference genome index files found. \e[0m"; 
+else 
+    echo -e "\e[1;35m [@] Some reference genome index files may be missing, rerunning bwa index command\e[0m"; 
+    bwa index ${REFPATH} || { echo -e "\e[1;31m [!] BWA indexing failed.\e[0m" ; exit ; }; 
+fi
+
+cd ${MYPATH}/bams
+
+#Check whether there are any trimmed files:
+if [ $(ls -l ../trimmed_reads/*_1_trim_paired.fastq.gz 2>/dev/null | awk '{if ($5 != 0) print $9}' | wc -l) -lt 1 ]; then
+    echo -e "\e[1;31m [!] No trimmed read files found.\e[0m"; 
+    exit ;
+fi
+
+for i in $(ls ../trimmed_reads/*_1_trim_paired.fastq.gz); do 
+    file=$(echo ${i} | awk -F "/" '{print $NF}' | cut -d "_" -f1);
+    if [ -s ${MYPATH}/bams/${file}_sorted.bam ]; then  
+	echo -e "\e[1;35m [@] ${file} has already been aligned. The output file named ${file}_sorted.bam may be present, but this is removed in later steps of the pipeline so may not be - this is expected.\e[0m"; 
+    elif [ -s ${MYPATH}/bams/${file}_sorted_nodups.bam ]; then 
+	echo -e "\e[1;35m [@] ${file} has already been aligned and deduplicated, resulting file can be found as ${file}_sorted_nodups.bam.\e[0m"
+    else
+	bwa mem -t ${THREADS} ${REFPATH} \
+		../trimmed_reads/${file}_1_trim_paired.fastq.gz \
+		../trimmed_reads/${file}_2_trim_paired.fastq.gz | 
+	samtools view -F 256 -b | 
+	samtools sort > ${file}_sorted.bam || { echo -e "\e[1;31m [!] There was an error with aligning reads to the reference file. \e[0m"; exit; };
+	echo -e "\e[1;35m [@] Finished aligning and sorting sample\e[0m \e[0;32m ${file} \e[0m";
+    fi;
+done 
+
+module unload bwa/0.7.17
+#leave samtools module loaded.
+
+echo -e "\e[1;34m [%] BWA aligning finished. \e[0m"
+
+#Do some Samtools file handling if there are no files ending in *nodups.bam:
+
+echo -e "\e[1;33m [%] Starting Samtools file handling. \e[0m"
+
+#Check is duplicates have already been removed, otherwise remove duplicates:
+if [ $(ls -l *sorted_nodups.bam 2>/dev/null | awk '{if ($5 != 0) print $9}' | wc -l) -gt 0 ]; then 
+     echo -e "\e[1;31m [!] Bam files may have already been deduplicated, check these files.\e[0m"
+     echo -e "\e[1;35m [@] Skipping Samtools filehandling \e[0m";
+else
+    for i in $(ls *_sorted.bam); do 
+	echo -e "\e[1;35m [@] Removing duplicates in sample\e[0m \e[0;32m ${i} \e[0m"
+	name=$(echo $i | cut -d "_" -f1); 
+	samtools rmdup -S ${i} ${name}_sorted_nodups.bam || exit;
+    done;
+#sort the bams:
+    for i in $(ls *_sorted_nodups.bam); do
+	file=$(echo ${i} | cut -d "_" -f1);
+	echo -e "\e[1;35m [@] Indexing sample\e[0m \e[0;32m ${file} \e[0m"
+	samtools index ${i} || exit; 
+    done;
+#Save space, remove old bams: 
+    echo -e "\e[1;33m [%] Removing unecessary sorted bam files.\e[0m";
+    rm -f *_sorted.bam;
+    echo -e "\e[1;34m [%] Finished Samtools file handling. \e[0m";
+fi
+#Check read mapping. First make a file called bamfile_coverage.list that reports for each bam file the percentage of the reference genome with at least 1 read coverage, and the percentage of the reference genome with at least 20 read coverage. Then filter files that have at least 90% of genome mapped with at least 1 read. This will filter out any samples that poorly align to the reference, which could be due to contamination, poor sequencing etc. 
+
+echo -e "\e[1;33m [%] Starting read mapping checks. \e[0m"
+
+module load mbovis_tools/0.2
+
+#Calculate reference genome coverage for each sample:
+if [ -s bamfile_coverage.list ]; then 
+    echo -e "\e[1;35m [@]  Coverage already calculated: \e[0m";
+    cat bamfile_coverage.list;
+else
+    for i in $(ls *_sorted_nodups.bam); do 
+	calculate_genomecov.sh ${i} || exit; 
+    done > bamfile_coverage.list;
+    echo -e "\e[0;32m Bam file coverage: \e[0m";
+    cat bamfile_coverage.list;
+fi
+
+#Decide whether coverage is enough to continue analysis for each sample. Only run if 'passed_files' is not already empty:
+if [ $(ls ${MYPATH}/passed_files/ 2>/dev/null | wc -l) -gt 0 ]; then 
+    echo -e "\n\e[1;31m [!] Passed_files directory exists and is not empty. Check files are correct by comparing with files listed bamfile_coverage.list or remove and rerun. \e[0m";
+else
+    for i in $(ls *_sorted_nodups.bam); do 
+	select_files.sh ${i} 1 ${MYPATH}/passed_files || exit; 
+    done;
+fi
+
+#leave mbovis_tools/* module loaded.
+
+echo -e "\e[1;34m [%] Finished read mapping checks. \e[0m"
+
+
+#Now move into the new passed_files directory and call variants, which will results in vcf files made in:
+
+echo -e "\e[1;33m [%] Starting variant calling. \e[0m"
+
+module load bcftools/1.13
+
+cd ${MYPATH}/passed_files
+
+for i in $(ls *_sorted_nodups.bam); do 
+    name=$(echo ${i} | cut -d "_" -f1);
+    if [ -s ${MYPATH}/variants/${name}.vcf ]; then
+        echo -e "\e[1;35m [@] ${name} vcf has already been created. \e[0m";
+    else
+	{ bcftools mpileup -d 1000 ${i} --fasta-ref $REFPATH || echo -e "\e[1;31mbcftools failed to run mpileup command.\e[0m"; exit ;} | 
+	bcftools call --ploidy 1 --multiallelic-caller --output-type v --variants-only -V indels --output $MYPATH/variants/${name}.vcf || exit;  
+	echo -e "\e[1;35m [@] Finished variant calling for sample\e[0m \e[0;32m ${name} \e[0m";
+    fi
+done
+
+#leave bcftools/1.13 module loaded
+
+echo -e "\e[1;34m [%] Finished variant calling. \e[0m"
+
+###############################################################
+
+echo -e "\e[1;33m\n ------------ \n Starting vcf file compression and merging. \n ------------ \n\e[0m"
+
+cd ${MYPATH}/variants
+
+for i in $(ls ${MYPATH}/passed_files/* | awk -F "/" '{print $NF}' | cut -d "_" -f1 | sort | uniq); do 
+    if [ -f ${i}.vcf ]; then 
+        bgzip ${i}.vcf || { echo -e "\e[1;31mFailed to compress vcf file.\e[0m"; exit ; };
+    elif [ -f ${i}.vcf.gz ]; then 
+	echo -e "\e[1;35m${i} already compressed.\e[0m"; 
+    else 
+	echo -e "\e[1;31m${i} - no vcf or compressed vcf found, check variant calling completed correctly.\e[0m"; 
+    fi; 
+done
+
+for i in *vcf.gz; do 
+    if [ -f ${i}.csi ]; then 
+	 echo -e "\e[1;35m ${i} already indexed \e[0m"; 
+    else 
+	 bcftools index ${i} || { echo -e "\e[1;31mFailed to index compressed vcf file.\e[0m"; exit; } ;
+    fi; 
+done
+
+ls *vcf.gz > files_to_merge.list
+
+[ -f ${UNIQ}_merged.vcf.gz ] && echo -e "\e[1;35m${UNIQ}_merged.vcf.gz already exists\e[0m" || bcftools merge -l files_to_merge.list -o ${UNIQ}_merged.vcf.gz 
+
+echo -e "\e[1;34m\n ------------ \n  Finished vcf file merging. \n ------------ \n\e[0m"
+
+
+#Now filter the merged file:
+
+echo -e "\e[1;33m\n ------------ \n Starting merged vcf file filtering. \n ------------ \n\e[0m"
+
+[ -s ${UNIQ}_filtered_merged.vcf ] && echo -e "\e[1;35m${UNIQ}_filtered_merged.vcf already exists.\e[0m" || 
+bcftools filter -i 'DP>=30 & MQ>=30 & DP4[2]>=4 & DP4[3]>=4 & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=0.95' ${UNIQ}_merged.vcf.gz |
+variantpositionfiltering.py | 
+exclude_regions.py > ${UNIQ}_filtered_merged.vcf
+
+echo -e "\e[1;34m\n ------------ \n  Finished filtering merged vcf file. \n ------------ \n\e[0m"
+
+
+#then make the Fasta files for each sample and put them in the corresponding directory and catenate them into one. Also rename the genomes in the fasta files so that it contains the sample name, otherwise they won't be distinguishable in subsequent analyses.
+
+echo -e "\e[1;33m\n ------------ \n Starting Fasta file creation. \n ------------ \n\e[0m"
+
+[ -s ${UNIQ}_filtered_merged.vcf.gz ] && echo -e "\e[1;35m${UNIQ}_filtered_merged.vcf.gz already exists\e[0m" || bgzip ${UNIQ}_filtered_merged.vcf
+
+[ -s ${UNIQ}_filtered_merged.vcf.gz.csi ] && echo -e "\e[1;35m${UNIQ}_filtered_merged.vcf.gz already indexed\e[0m" || bcftools index ${UNIQ}_filtered_merged.vcf.gz 
+
+for i in $(bcftools query -l ${UNIQ}_filtered_merged.vcf.gz); do 
+    name=$(echo ${i} | cut -d "_" -f1);
+    if [ -s ${MYPATH}/fasta_aln/${name}.fasta ]; then
+	echo -e "\e[1;35m${MYPATH}/fasta_aln/${name}.fasta already exists.\e[0m"
+    else
+	echo -e "\e[1;33mMaking Fasta for ${i}\e[0m"; 
+        bcftools consensus \
+	--fasta-ref $REFPATH \
+	--sample ${i}  \
+	${UNIQ}_filtered_merged.vcf.gz | 
+	sed "s/^>/>${name} /" > $MYPATH/fasta_aln/${name}.fasta || { echo -e "\e[1;31mCannot create fasta files. Check MYPATH variable.\e[0m"; exit; }; 
+	fi;
+done
+
+cd $MYPATH/fasta_aln
+
+cat $REFPATH *.fasta > $UNIQ.aln
+
+#################################################################
+
+#Next task
+
+
+
+#Now for each file, filter the vcfs based on some parameters which can be set by the user. 
+
+# echo -e "\e[1;33m [%] Starting vcf file filtering. \e[0m"
+
+# cd ${MYPATH}/variants
+
+# for i in $(ls ${MYPATH}/passed_files/*_sorted_nodups.bam | awk -F "/" '{print $NF}' | cut -d "_" -f1 | sort | uniq); do
+#     if [ -s ${MYPATH}/variants/${name}_filtered.vcf ]; then 
+# 	echo -e "\e[1;35m [@] ${name} vcf has already been filtered. \e[0m";
+#     elif [ -s ${MYPATH}/variants/${name}_filtered.vcf.gz ]; then
+#         echo -e "\e[1;35m [@] ${name} vcf has already been filtered and compressed.\e[0m"
+#     elif [ ${EXCLUDE} = true ] ; then
+#     	bcftools filter -i "DP>=${DP} & MQ>=${MQ} & DP4[2]>=${DP4F} & DP4[3]>=${DP4R} & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=${SUPPORT}" ${i}.vcf |
+#     	variantpositionfiltering.py | 
+#     	exclude_regions.py > ${name}_filtered.vcf;
+#     	echo -e "\e[1;35m [@] Finished filtering variants for sample\e[0m \e[0;32m ${name} \e[0m";
+#     else 
+#         bcftools filter -i "DP>=${DP} & MQ>=${MQ} & DP4[2]>=${DP4F} & DP4[3]>=${DP4R} & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=${SUPPORT}" ${i}.vcf |
+#         variantpositionfiltering.py > ${name}_filtered.vcf;
+#         echo -e "\e[1;35m [@] Finished filtering variants for sample\e[0m \e[0;32m ${name} \e[0m";
+#     fi;
+# done
+
+# echo -e "\e[1;34m [%] Finished filtering vcf files. \e[0m"
+
+#Then compress the files, index and then merge the samples into one vcf file:
+
+# echo -e "\e[1;33m [%] Starting filtered vcf file compression and merging. \e[0m"
+
+
+# #cd ${MYPATH}/variants
+
+# # for i in $(ls ${MYPATH}/passed_files/* | awk -F "/" '{print $NF}' | cut -d "_" -f1 | sort | uniq); do 
+# #     if [ -f ${i}.vcf ]; then 
+# #         bgzip ${i}.vcf || { echo -e "\e[1;31mFailed to compress vcf file.\e[0m"; exit ; };
+# #     elif [ -f ${i}.vcf.gz ]; then 
+# # 	echo -e "\e[1;35m${i} already compressed.\e[0m"; 
+# #     else 
+# # 	echo -e "\e[1;31m${i} - no vcf or compressed vcf found, check variant calling completed correctly.\e[0m"; 
+# #     fi; 
+# # done
+
+# for i in $(ls ${MYPATH}/passed_files/*_sorted_nodups.bam | awk -F "/" '{print $NF}' | cut -d "_" -f1 | sort | uniq); do 
+#     if [ -s ${MYPATH}/variants/${i}_filtered.vcf ]; then
+#         bgzip ${i}_filtered.vcf || { echo -e "\e[1;31mFailed to compress vcf file.\e[0m"; exit ; };
+#     elif [ -f ${MYPATH}/variants/${i}_filtered.vcf.gz ]; then 
+# 	echo -e "\e[1;35m [@] ${i} already compressed.\e[0m"; 
+#     else
+# 	echo -e "\e[1;31m [!] ${i} - no vcf or compressed vcf found, check variant calling completed correctly.\e[0m"; exit; 
+#     fi; 
+# done
+
+# for i in $(ls *_filtered.vcf.gz); do 
+#     if [ -f ${i}.csi ]; then 
+# 	echo -e "\e[1;35m [@] ${i} already indexed \e[0m"; 
+#     else 
+# 	{ bcftools index ${i} || echo -e "\e[1;31m [!] Failed to index compressed vcf file.\e[0m"; exit; } ;
+#     fi; 
+# done
+
+# ls *_filtered.vcf.gz > files_to_merge.list
+
+# [ -f ${UNIQ}_merged.vcf.gz ] && echo -e "\e[1;35m [@] ${UNIQ}_merged.vcf.gz already exists\e[0m" || { 
+#     ls *.vcf.gz | split -l 500 - subset_vcfs; 
+#     for i in $(ls subset_vcf*); do 
+# 	bcftools merge -l ${i} -o merged_${i}.vcf.gz; 
+# 	bcftools index merged_${i}.vcf.gz; 
+#     done; 
+#     ls merged_*.vcf.gz > files_to_merge.list 
+#     bcftools merge -l files_to_merge.list -o ${UNIQ}_merged.vcf.gz ;
+# }
+
+# #Add in file check here, else it will continue to the end and give lots of confusing outputs.
+# [ -s ${UNIQ}_merged.vcf.gz ] || { echo -e "\e[1;31m [!] Compressed merged vcf file is empty or does not exist, exiting."; exit ;}
+
+# echo -e "\e[1;34m [%] Finished vcf file merging. \e[0m"
+
+# #then make the Fasta files for each sample and put them in the corresponding directory and catenate them into one. Also rename the genomes in the fasta files so that it contains the sample name, otherwise they won't be distinguishable in subsequent analyses.
+
+# echo -e "\e[1;33m [%] Starting Fasta file creation. \e[0m"
+
+# [ -s ${UNIQ}_merged.vcf.gz ] && echo -e "\e[1;35m [@] ${UNIQ}_merged.vcf.gz already exists\e[0m" || bgzip ${UNIQ}_merged.vcf
+
+# [ -s ${UNIQ}_merged.vcf.gz.csi ] && echo -e "\e[1;35m [@] ${UNIQ}_merged.vcf.gz already indexed\e[0m" || bcftools index ${UNIQ}_merged.vcf.gz 
+
+# for i in $(bcftools query -l ${UNIQ}_merged.vcf.gz); do 
+#     name=$(echo ${i} | cut -d "_" -f1);
+#     if [ -s ${MYPATH}/fasta_aln/${name}.fasta ]; then
+# 	echo -e "\e[1;35m [@] ${MYPATH}/fasta_aln/${name}.fasta already exists.\e[0m"
+#     else
+# 	echo -e "\e[1;35m [@] Making Fasta for ${i}\e[0m"; 
+#         bcftools consensus \
+# 	--fasta-ref ${REFPATH} \
+# 	--sample ${i}  \
+# 	${UNIQ}_merged.vcf.gz | 
+# 	sed "s/^>/>${name} /" > ${MYPATH}/fasta_aln/${name}.fasta || { echo -e "\e[1;31m [!] Cannot create fasta files. Check MYPATH variable.\e[0m"; exit; }; 
+# 	fi;
+# done
+
+# cd ${MYPATH}/fasta_aln
+
+# cat ${REFPATH} *.fasta > ${UNIQ}.aln
+
+#######################################
+
+
+echo -e "\e[1;34m [%] Finished Fasta file creation. Alignment file has been created. \e[0m"
+
+#Load and run snp-sites to extract the SNP sites from the alignment file.
+
+echo -e "\e[1;33m [%] Starting SNP_Sites. \e[0m"
+
+module load snp-sites/2.5.1
+
+[ -s ${UNIQ}.snp_sites.aln ] && echo -e "\e[1;35m [@] snp-sites already completed.\e[0m" || snp-sites -mvp -o ${UNIQ} ${UNIQ}.aln
+[ -s ${UNIQ}_fconst.aln ] && echo -e "\e[1;35m [@] Constant sites already calculated.\e[0m" || snp-sites -mvpC -o ${UNIQ}_fconst.aln ${UNIQ}.aln
+
+echo -e "\e[1;34m [%] Finished Fasta file creation. Alignment files have been created. \e[0m"
+
+#Move into the tree directory, copy the aligned SNPs file and load RAxML for tree building. 
+
+echo -e "\e[1;33m [%] Starting Tree building with RAxML.\e[0m"
+
+module load RAxML/8.2.12
+
+[ -f ../tree/${UNIQ}.aln ] && echo -e "\e[1;35m [@] ${UNIQ}.aln already copied.\e[0m" || cp ${UNIQ}.aln ../tree/
+[ -f ../tree/${UNIQ}_fconst.aln ] && echo -e "\e[1;35m [@] ${UNIQ}_fconst.aln already copied.\e[0m" || cp ${UNIQ}_fconst.aln ../tree/
+[ -f ../tree/${UNIQ}.phylip ] && echo -e "\e[1;35m [@] ${UNIQ}.phylip already copied.\e[0m" || cp ${UNIQ}.phylip ../tree/
+[ -f ../tree/${UNIQ}.snp_sites.aln ] && echo -e "\e[1;35m [@] ${UNIQ}.snp_sites.aln already copied.\e[0m" || cp ${UNIQ}.snp_sites.aln ../tree/
+
+cd ../tree
+[ -d RAxML ] || mkdir RAxML 
+
+ln -s ${EXCLUDED_REGIONS} #symbolically link the excluded high variable regions file so RAXML can find it.
+
+[ -s ${MYPATH}/tree/RAxML/RAxML_bestTree.${UNIQ} ] || { raxmlHPC-PTHREADS-SSE3 -T ${THREADS} -f a -p 12345 -x 12345 -# 100 -m GTRCAT -s ${UNIQ}.snp_sites.aln -n ${UNIQ}_SNP_Tree -w ${MYPATH}/tree/RAxML || echo -e "\e[1;31m [!] RAxML did not run successfully. Check required file ${UNIQ}/snp_sites.aln is present in the tree directory. Alternatively, if AMBoP was cancelled prematurely, remove all tree files and run again.\e[0m"; }; 
+
+if ${GENOME_TREE} == true; then
+    echo -e "\e[1;33m [%] Full Genome Tree chosen.\e[0m";
+
+	if ${GENOME_TREE_EXCLUDE} == true; then
+    	echo -e "\e[1;33m [%] Starting FULL GENOME Tree building with RAxML -Will excluded genomic regions.\e[0m";
+    	{ raxmlHPC-PTHREADS-SSE3 -T ${THREADS} -f a -p 12345 -x 12345 -# 100 -m GTRCAT -s ${UNIQ}.aln -n ${UNIQ}_Full_Genome_Excluded_HighGC -w ${MYPATH}/tree/RAxML -E  regions_to_be_excluded.txt || echo -e "\e[1;31m [!] RAxML did not run successfully. Check required file ${UNIQ}.aln is present in the tree directory. Alternatively, if AMBoP was cancelled prematurely, remove all tree files and run again.\e[0m"; }; 
+
+        { raxmlHPC-PTHREADS-SSE3 -T ${THREADS} -f a -p 12345 -x 12345 -# 100 -m GTRCAT -s ${UNIQ}.aln.regions_to_be_excluded.txt -n ${UNIQ}_Full_Genome_Excluded_HighGC -w ${MYPATH}/tree/RAxML  || echo -e "\e[1;31m [!] RAxML did not run successfully. Check required file ${UNIQ}.aln is present in the tree directory. Alternatively, if AMBoP was cancelled prematurely, remove all tree files and run again.\e[0m"; }; 
+
+	else
+		echo -e "\e[1;33m [%] Starting FULL GENOME Tree building with RAxML - Not excluding genomic regions.\e[0m";
+		{ raxmlHPC-PTHREADS-SSE3 -T ${THREADS} -f a -p 12345 -x 12345 -# 100 -m GTRCAT -s ${UNIQ}.aln -n ${UNIQ}_Full_Genome -w ${MYPATH}/tree/RAxML || echo -e "\e[1;31m [!] RAxML did not run successfully. Check required file ${UNIQ}.aln is present in the tree directory. Alternatively, if AMBoP was cancelled prematurely, remove all tree files and run again.\e[0m"; };
+	fi
+fi
+
+
+module unload RAxML;  
+echo -e "\e[1;34m [%] Finished Tree building with RAxML. \n\e[0m";
+echo -e "\e[1;36m [?] Final tree file is in file RAxML_bipartitionsBranchLabels.${UNIQ} \e[0m"
+
+echo -e "\e[1;33m [%] Starting Tree building with IQ-Tree.\e[0m"
+
+module load iqtree/1.6.12
+[ -d IQTree ] || mkdir IQTree
+
+if [ ! -f IQTree/${UNIQ}.treefile ] && [ -s ${UNIQ}_fconst.aln ]; then
+    iqtree -nt AUTO -s ${UNIQ}.phylip -m MFP -bb 1000 -fconst $(cat ${UNIQ}_fconst.aln) -pre IQTree/${UNIQ};
+elif [ ! -s ${UNIQ}_fconst.aln ]; then
+    echo -e "\e[1;31m [!] ${UNIQ}_fconst.aln not available. IQTree will not run successfully without this file.\e[0m"
+else 
+    echo -e "\e[1;35m [@] IQTree files already present\e[0m"
+fi
+
+module unload iqtree
+echo -e "\e[1;34m [%] Finished Tree building with IQ-Tree. \n\e[0m"
+echo -e "\e[1;36m [?] Final tree file is in file ${UNIQ}.treefile \e[0m"
+
+echo -e "\e[1;36m [?] iTOL annotation files to add colour to trees can be created automatically using a metadata file and iTol_range_annotation_maker.py in the misc_tools-* module. Visualisation of presence or absence of SNPs in functional genes can be done using a binary matrix annotation add onto the tree, for which the tool iTol_binary_an
+notation_maker.py exists in the misc_tools-* module.\e[0m"
+
+#Run snpEff to look at SNP Effects. Do this on the merged vcf file, and receive three output files - a html, a gene file and a designated output file in VCF format. Then also run the script to return two files, one (all_interesting_pos.tsv) containing the positions of the variants, reference allele, alternate allele, the number of samples and list of sample names (simplified VCF) and another file (variants_in_functional_genes.csv) which contains those variant positions that fall within genes/coding regions, with all the information from the gff and eggnog annotations provided for each gene that the variants are is in.
+
+echo -e "\e[1;33m [%] Getting effects and functional annotations of variants in coding regions.\e[0m"
+
+cd ${MYPATH}/variants/functional
+module load snpEff/5.0e
+
+[ -s ${UNIQ}_snpEff.out ] && echo -e "\e[1;35m [@] snpEff output file already exists in variants/functional. Check it is complete, or delete and rerun AMBoP.\e[0m" || snpEff Mycobacterium_bovis_AF212297-LT708304.1 ${MYPATH}/variants/${UNIQ}_merged.vcf -formatEff > ${UNIQ}_snpEff.out
+
+echo -e "\e[1;36m [?] Note: snpEff output can be found in ${UNIQ}_snpeff.out. This contains much more information about the resulting SNP Effects. See http://pcingola.github.io/SnpEff/se_inputoutput/#eff-field-vcf-output-files for output file format and information included. Only the first reported SNP effect is retained in subsequent functional output files.\e[0m"
+
+if [ $(cat all_interesting_pos.tsv 2>/dev/null | wc -l) -gt 1 ] && [ $(cat variants_in_functional_genes.csv 2>/dev/null | wc -l) -gt 1 ]; then 
+    echo -e "\e[1;35m [@] variants_in_functional_genes.csv and all_interesting_pos.tsv output files are already present, check they are complete or remove and rerun AMBoP.\e[0m";
+else
+    cat ${UNIQ}_snpEff.out  | functional_variants.py ${REF_FUNC_ANNO}; # Passing this variable here
+fi
+
+echo -e "\e[1;34m [%] Finished getting effects and functional annotations for variants in coding regions. \n\e[0m"  
+
+echo -e "\e[1;33m [%] Creating sample statistics.\e[0m"
+
+cd ${MYPATH}
+
+for i in $(ls ${DATAPATH}/*${FORWARDPATTERN}*); do
+    isolate=$(echo ${i} | awk -F "/" '{print $NF}' | cut -d "_" -f1);
+    read_stats.sh ${isolate} ./$1;
+done |
+     sed '2,${/^#/d;}' > read_stats.csv
+
+echo -e "\e[1;34m [%] Finished creating sample statistics. \e[0m"  
+
+echo -e "\e[1;33m [%] Entering clear up phase.\e[0m"
+echo -e "\e[1;35m [@] You have specified to remove these directories: ${CLEARUP}\e[0m"
+
+mkdir ${MYPATH}/final_files
+mv ${MYPATH}/read_stats.csv ${MYPATH}/final_files
+cd ${MYPATH}/final_files  
+cp -r ${MYPATH}/variants/functional ./ && rm -rf ${MYPATH}/variants/functional 
+cp -r ${MYPATH}/tree ./ && rm -rf ${MYPATH}/tree
+cp ${MYPATH}/variants/${UNIQ}_merged.vcf.gz ./ && rm -f ${MYPATH}/variants/${UNIQ}_merged.vcf.gz
+cp ${MYPATH}/bams/bamfile_coverage.list ./ && rm -f ${MYPATH}/bams/bamfile_coverage.list
+
+[[ ${CLEARUP} = "ALL" ]] && rm -rf ${MYPATH}/trimmed_reads ${MYPATH}/bams ${MYPATH}/passed_files ${MYPATH}/fasta_aln ${MYPATH}/variants ${MYPATH}/tree  
+[[ ${CLEARUP} = *"TRIMMEDREADS"* ]] && rm -rf ${MYPATH}/trimmed_reads 
+[[ ${CLEARUP} = *"BAMS"* ]] && rm -rf ${MYPATH}/bams 
+[[ ${CLEARUP} = *"PASSEDFILES"* ]] && rm -rf ${MYPATH}/passed_files 
+[[ ${CLEARUP} = *"FASTA"* ]] && rm -rf ${MYPATH}/fasta_aln
+[[ ${CLEARUP} = *"VARIANTS"* ]] && rm -rf ${MYPATH}/variants  
+
+echo -e "\e[1;34m [%] Finished clear up phase.\e[0m"
+echo -e "\e[1;36m [?] Final files can be found here: ${MYPATH}/final_files \e[0m"
+echo -e "\e[1;36m [?] AMBoP experiment ${UNIQ} Complete.\e[0m"
+
+
