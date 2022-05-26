@@ -8,7 +8,7 @@ if [ "$#" -eq 0 ]; then
     echo "Aberystwyth M. bovis Pipeline (AMBoP)."
     echo "Version 1.5.3"
     echo "GitHub: https://github.com/Aber-TB/AMBoP"
-    echo "Technical Help: nicholas@dimonaco.co.uk"
+    echo "Technical Help: jess@friedersdorff.com | nicholas@dimonaco.co.uk"
     echo "Current Time: $now"
     echo "Takes raw sequence data, finds SNPs, outputs functional information about these SNPs and builds trees."
     echo ""
@@ -293,7 +293,7 @@ echo -e "\e[1;34m\n ------------ \n  Finished vcf file merging. \n ------------ 
 echo -e "\e[1;33m\n ------------ \n Starting merged vcf file filtering. \n ------------ \n\e[0m"
 
 [ -s ${UNIQ}_filtered_merged.vcf ] && echo -e "\e[1;35m${UNIQ}_filtered_merged.vcf already exists.\e[0m" || 
-bcftools filter -i 'DP>=30 & MQ>=30 & DP4[2]>=4 & DP4[3]>=4 & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=0.95' ${UNIQ}_merged.vcf.gz |
+bcftools filter -i 'DP>=30 & MQ>=30 & DP4[2]>=4 & DP4[3]>=4 & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=${SUPPORT}' ${UNIQ}_merged.vcf.gz |
 variantpositionfiltering.py | 
 exclude_regions.py > ${UNIQ}_filtered_merged.vcf
 
