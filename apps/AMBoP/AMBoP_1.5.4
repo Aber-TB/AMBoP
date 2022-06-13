@@ -58,6 +58,42 @@ echo -e "\e[1;33m [%] Starting... \e[0m"
 [ -d ${MYPATH}/variants/functional ] && echo -e "\e[1;35m [@] Directory functional exists.\e[0m" || mkdir ${MYPATH}/variants/functional #for those variants involved in functional genes
 [ -d ${MYPATH}/fasta_aln ] && echo -e "\e[1;35m [@] Directory fasta_aln exists.\e[0m" || mkdir ${MYPATH}/fasta_aln #for the fastas and the aligned files
 [ -d ${MYPATH}/tree ] && echo -e "\e[1;35m [@] Directory tree exists.\e[0m" || mkdir ${MYPATH}/tree  #for the phylogenetic tree files
+[ -d ${MYPATH}/fastqc ] && echo -e "\e[1;35m [@] Directory fastqc exists.\e[0m" || mkdir ${MYPATH}/fastqc  #for the fastqc checking files
+
+
+### Check Java installed
+
+java -version #make a note of the java version. 
+
+# Perform FASTQC
+
+#check $PATTERN files exist:
+
+module load FastQC/0.11.9
+
+
+if [ $(ls -l ${DATAPATH}/*${FORWARDPATTERN} 2>/dev/null | awk '{if ($5 != 0) print $9}' | wc -l) -lt 1 ]; then
+    echo -e "\e[1;31m [!] $FORWARDPATTERN and $REVERSEPATTERN files not found, check pattern provided in config file.\e[0m"; 
+    exit ;
+else
+    echo -e "\e[1;35m [@] $(ls ${DATAPATH}/*${FORWARDPATTERN} | wc -l) forward files found.\e[0m";
+    echo -e "\e[1;35m [@] $(ls ${DATAPATH}/*${REVERSEPATTERN} | wc -l) reverse files found.\e[0m"
+fi
+
+if ${FASTQC} == true; then # Currently no check to see if this has already been done. - Also should check quality after trimming
+
+	for i in $(ls ${DATAPATH}/*${FORWARDPATTERN}); do
+		fastqc -o ${MYPATH}/fastqc \
+			-f fastq $i
+	done
+
+	for i in $(ls ${DATAPATH}/*${REVERSEPATTERN}); do
+		fastqc -o ${MYPATH}/fastqc \
+			-f fastq $i
+	done
+fi
+
+
 
 #trim data using Trimmomatic v0.39 with settings removing universal Illumina adaptors, minimum length of 50, sliding window size 3 with average score of 20 and average quality of 20.
 
@@ -70,17 +106,6 @@ cd ${MYPATH}/trimmed_reads
 ln -s ${ADAPTERS} #symbolically link the adapter fasta file so Trimmomatic can find it.
 
 
-
-java -version #make a note of the java version. 
-
-#check $PATTERN files exist:
-if [ $(ls -l ${DATAPATH}/*${FORWARDPATTERN} 2>/dev/null | awk '{if ($5 != 0) print $9}' | wc -l) -lt 1 ]; then
-    echo -e "\e[1;31m [!] $FORWARDPATTERN and $REVERSEPATTERN files not found, check pattern provided in config file.\e[0m"; 
-    exit ;
-else
-    echo -e "\e[1;35m [@] $(ls ${DATAPATH}/*${FORWARDPATTERN} | wc -l) forward files found.\e[0m";
-    echo -e "\e[1;35m [@] $(ls ${DATAPATH}/*${REVERSEPATTERN} | wc -l) reverse files found.\e[0m"
-fi
 
 for i in $(ls ${DATAPATH}/*${FORWARDPATTERN}); do
     file=$(echo ${i} | awk -F "/" '{print $NF}' | cut -d "_" -f1);    
