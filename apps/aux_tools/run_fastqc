@@ -1,0 +1,22 @@
+
+DATAPATH=/ibers/repository03/archive/aber_tb/apha
+
+OUTPATH=/ibers/repository03/groups/aber_tb/dev_data/APHA_FASTQC/
+
+#Set the raw read file patterns for forward and reverse. Look for things that are common to all forward and reverse files such that when you use this pattern with the ls command, it finds them all. 
+FORWARDPATTERN="*_R1*"
+REVERSEPATTERN="*_R2*"
+
+
+module load FastQC/0.11.9
+
+for i in $(ls ${DATAPATH}/*${FORWARDPATTERN}); do
+	fastqc -o ${OUTPATH} \
+		-f fastq $i -t 4
+done
+
+for i in $(ls ${DATAPATH}/*${REVERSEPATTERN}); do
+	fastqc -o $OUTPATH} \
+		-f fastq $i -t 4 
+done
+

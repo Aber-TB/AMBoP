@@ -59,7 +59,8 @@ def main():
             #list and count the number of samples for each variant.
             for idx, sample in enumerate(GTPL):
                 if sample != ".:.":
-                    samplename = sample_list[idx].split("_")[0] 
+                    #samplename = sample_list[idx].split("_")[0] 
+                    samplename = sample_list[idx].split("_sorted")[0] 
                     samples_with_var.append(samplename)
                     number_of_samples = [str(len(samples_with_var))]
             var_dict[position] = reference + alternate + number_of_samples + samples_with_var + EFF
