@@ -29,7 +29,7 @@ then outputs functional information about these SNPs and builds trees.
 8. Mapping checks carried out using calculate_genomecov.sh creating bamfile_coverage.list.
 9. Files selected that pass using select_files.sh which keeps any files with over 90% of the genome covered by at least 1 read. These passed files are symbolically linked in a new directory.
 10. Bcftools mpileup used to call SNPs, with -d 1000 (1000 reads called per position), then bcftools call with –ploidy, multiallelic caller and returning variants only (removing indels).
-11. Each vcf file (one per sample) is then filtered using 4 cut offs set by the config file. The defaults in the config file are those recommended through personal correspondence with Richard Ellis (APHA) or in his GitHub (https://github.com/ellisrichardj/BovTB-nf) and can be found in other publications. The settings as defaults are DP>=10 (At least 10 reads needed to cover a site) & MQ>=30 (mapping quality at least 30) & DP4[2]>=1 & DP4[3]>=1 (at least 1 forward read and 1 reverse read covering the site) & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=${SUPPORT}' (allele supported by 95% of the reads covering the site). See appendix for more explanations.
+11. Each vcf file (one per sample) is then filtered using 4 cut offs set by the config file. The defaults in the config file are those recommended through personal correspondence with Richard Ellis (APHA) or in his GitHub (https://github.com/ellisrichardj/BovTB-nf) and can be found in other publications. The settings as defaults are DP>=10 (At least 10 reads needed to cover a site) & MQ>=30 (mapping quality at least 30) & DP4[2]>=1 & DP4[3]>=1 (at least 1 forward read and 1 reverse read covering the site) & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=95 (allele supported by 95% of the reads covering the site). See appendix for more explanations.
 12. Also run through variantpositionfiltering.py and exclude_regions.py which will filter out SNPs within 10bp of each other SNPs and ignores SNPs in regions known as regions of variance of higher mutation (PE/PPE etc) as published previously (Price-Carter et al., 2018).
 13. Filtered vcf files (one for each sample) are then compressed with bgzip, indexed with bcftools, then all files merged using bcftools. Files are merged in 2 steps (because bcftools does not like handling >1021 files in one go) – subsets of 500 files are merged first, then those subsets are merged. These extra files are not deleted just yet because they are relatively small in size even for a data set of ~2000 samples.
 14. Filtered and merged vcf file is then compressed and indexed.
@@ -60,7 +60,7 @@ then outputs functional information about these SNPs and builds trees.
 14. DP4R - Number of supporting reverse reads.
 15. SUPPORT - Percentage of reads needed to support an alternative site.
 16. CLEANUP - Sets the level of file cleanup after completed runtime.
-17. LLUMINACLIP - Set which adapter and other illumina-specific sequences to be cut from the read.
+17. ILLUMINACLIP - Set which adapter and other illumina-specific sequences to be cut from the read.
 18. SLIDINGWINDOW - Set sliding window size to analyse average quality of read.
 19. MINLEN - Set minimum allowed length of read.
 20. AVGQUAL - Set the average quality score used to remove read.
