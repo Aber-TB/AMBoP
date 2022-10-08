@@ -1,0 +1,24 @@
+#!/bin/sh
+echo "A selection of M.bovis specific tools:"
+echo -e "\n------------------------"
+echo "AMBoP - Aberystwyth M. bovis Pipeline (AMBoP). Takes raw sequence data, finds SNPs, outputs functional information about these SNPs and builds trees."
+
+
+echo -e "\n------------------------"
+echo "calculate_genomecov.sh - M. bovis specific tool to print out specific coverage stats for reads aligned to M.bovis AF2122/97 reference genome - percentage of ref genome with at least 1 read coverage and at least 20 read coverage."
+
+echo -e "\n------------------------"
+echo "exclude_regions.py - M. bovis specific tool that filters out variants in a VCF file for that fall within known M. bovis repeat regions, prophages, PE or PPE proteins etc that have been reported previously by Price-Carter et #al, 2018 DOI:10.3389/fvets.2018.00272"
+
+echo -e "\n------------------------"
+echo "functional_variants.py - M. bovis specific tool to return two files, one (all_interesting_pos.tsv) containing the positions of the variants, reference allele, alternate allele, the number of samples and list of sample names (simplified VCF) and another file (variants_in_functional_genes.csv) which contains those variant positions that fall within genes/coding regions, with all the information from the gff and eggnog annotations provided for each gene that the variants are is in."
+
+echo -e "\n------------------------"
+echo "select_files.sh - M. bovis specific tool to copy files that pass the coverage filter into a new directory, based on >90% of the genome having either at least 1x or 20x coverage."
+
+echo -e "\n------------------------"
+echo "read_stats.sh - AMBoP specific tool that will return a comma separated list of read statistics for a sample. Must supply sample name and AMBoP config file. If files not found, provide path. Inspired by Richard Ellis' ReadStats.sh available at https://github.com/ellisrichardj/BovTB-nf/tree/master/bin." 
+
+echo -e "\n------------------------"
+echo "variantpositionfiltering.py - a generic tool to filter out any variants in a VCF file were the position is within 10 bp of another variant reported."
+echo -e "\n------------------------\n"
