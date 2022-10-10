@@ -76,7 +76,7 @@ HOME_PATH=$(pwd)
 mbovis_tools="$HOME_PATH/../mbovis_tools/mbovis_tools-0.3"
 
 
-if [ $(ls -l ${DATAPATH}/*${FORWARDPATTERN} 2>/dev/null | awk '{if ($5 != 0) print $9}' |  -l) -lt 1 ]; then # This is only checking for forward but really should be fine.
+if [ $(ls -l ${DATAPATH}/*${FORWARDPATTERN} 2>/dev/null | awk '{if ($5 != 0) print $9}' | wc -l) -lt 1 ]; then # This is only checking for forward but really should be fine.
     echo -e "\e[1;31m [!] $FORWARDPATTERN and $REVERSEPATTERN files not found, check pattern provided in config file.\e[0m"; 
     exit ;
 else
@@ -89,22 +89,37 @@ fi
 
 
 
-if ${FASTQC} == true; then # Currently no check to see if this has already been done. - Also should check quality after trimming
+if ${FASTQC} == true; then
 
     echo -e "\e[1;33m [%] FASTQC of untrimmed reads. \e[0m"
-    #module load FastQC/0.11.9
+    for seq_file in $(ls ${DATAPATH}/*${FORWARDPATTERN}); do
+	sample_name=$(echo ${seq_file} | awk -F "/" '{print $NF}' | sed 's/\.fastq\.gz//')
 
-    for i in $(ls ${DATAPATH}/*${FORWARDPATTERN}); do
-        fastqc -o ${MYPATH}/fastqc/pre_trimming \
-            -f fastq $i
+	#Check forward read fastqc files exist:
+	if [ -s ${MYPATH}/fastqc/pre_trimming/${sample_name}_fastqc.zip ]; then
+	    #if found:
+	    echo -e "\e[1;35m [@] Quality report for ${sample_name} already produced.\e[0m"
+	else
+	    #run fastqc on the file
+            fastqc -o ${MYPATH}/fastqc/pre_trimming \
+	           -f fastq ${seq_file}
+	fi
     done
 
-    for i in $(ls ${DATAPATH}/*${REVERSEPATTERN}); do
-        fastqc -o ${MYPATH}/fastqc/pre_trimming \
-            -f fastq $i
+    for rev_seq_file in $(ls ${DATAPATH}/*${REVERSEPATTERN}); do
+	sample_name=$(echo ${rev_seq_file} | awk -F "/" '{print $NF}' | sed 's/\.fastq\.gz//')
+
+	#Check reverse read fastqc files exist
+	if [ -s ${MYPATH}/fastqc/pre_trimming/${sample_name}_fastqc.zip ]; then
+	    #if found:
+            echo -e "\e[1;35m [@] Quality report for ${sample_name} already produced.\e[0m"
+	else
+	    #run fastqc on the file 
+            fastqc -o ${MYPATH}/fastqc/pre_trimming \
+		   -f fastq ${rev_seq_file}
+	fi
     done
 
-    #module unload FastQC/0.11.9
     echo -e "\e[1;34m [%] Finished FASTQC of untrimmed reads. \e[0m"
 
 fi
@@ -129,7 +144,7 @@ for i in $(ls ${DATAPATH}/*${FORWARDPATTERN}); do
     echo $file
     #Do a quick check to see if there are any non-empty trim-paired files, like if the script has been run before to save time overwriting.
     if [ -s ${MYPATH}/trimmed_reads/${file}_1_trim_paired.fastq.gz ] ; then 
-    echo -e "\e[1;35m [@] ${file} already trimmed.\e[0m"; 
+	echo -e "\e[1;35m [@] ${file} already trimmed.\e[0m"; 
     else  
     trimmomatic PE -threads ${THREADS} \
         ${DATAPATH}/${file}*${FORWARDPATTERN} \
@@ -158,28 +173,25 @@ echo -e "\e[1;34m [%] Trimmomatic finished. \e[0m"
 
 # Perform FASTQC
 
-
-
-if ${FASTQC} == true; then # Currently no check to see if this has already been done. - Also should check quality after trimming
+if ${FASTQC} == true; then
 
     echo -e "\e[1;33m [%] FASTQC of trimmed reads. \e[0m"
-    #module load FastQC/0.11.9
-
-    for i in $(ls ${MYPATH}/trimmed_reads/*trim_paired.fastq.gz); do
-        fastqc -o ${MYPATH}/fastqc/post_trimming \
-            -f fastq $i
+    
+    for trimmed_seq_file in $(ls ${MYPATH}/trimmed_reads/*trim_paired.fastq.gz); do
+     trimmed_sample_name=$(echo ${trimmed_seq_file} | awk -F "/" '{print $NF}' | sed 's/\.fastq\.gz//')
+	#Check forward read fastqc files exist:
+	if [ -s ${MYPATH}/fastqc/post_trimming/${trimmed_sample_name}_fastqc.zip ]; then
+	    #if found:
+	    echo -e "\e[1;35m [@] Quality report for ${trimmed_sample_name} already produced.\e[0m"
+	else
+	    #run fastqc on the file
+	    fastqc -o ${MYPATH}/fastqc/post_trimming \
+	    -f fastq ${trimmed_seq_file}
+	fi
     done
 
-    for i in $(ls ${MYPATH}/trimmed_reads/*trim_paired.fastq.gz); do
-        fastqc -o ${MYPATH}/fastqc/post_trimming \
-            -f fastq $i
-    done
-
-    #module unload FastQC/0.11.9
-    echo -e "\e[1;33m [%] Finished FASTQC of trimmed reads. \e[0m"
-
+    echo -e "\e[1;34m [%] Finished FASTQC of trimmed reads. \e[0m"
 fi
-
 
 
 
