@@ -20,8 +20,7 @@ then outputs functional information about these SNPs and builds trees.
 ![AMBoP_1.5.3_Menu.png](AMBoP_1.5.3_Menu.png)
 
 1. Reads in the config file, makes directories.
-2. Trimmomatic (with full list of adapters, see appendix 1, their source is in the sequence name) ILLUMINACLIP:trimmomatic_adapters.fasta:2:30:10:2 SLIDINGWINDOW:10:20 MINLEN:50
-3. AVGQUAL:20 – the sliding window cut off is based on the badger culling trial paper (van Tonder et al., 2021).
+2. Trimmomatic (with full list of adapters, see appendix 1, their source is in the sequence name) ILLUMINACLIP:trimmomatic_adapters.fasta:2:30:10:2 SLIDINGWINDOW:10:20 MINLEN:50. AVGQUAL:20 – the sliding window cut off is based on the badger culling trial paper (van Tonder et al., 2021).
 4. Removes unnecessary unpaired files.
 5. Aligns reads to reference using BWA mem, default settings.
 6. Fed straight into Samtools which removes any secondary alignments (-F 256) and sorts bam file.
@@ -29,7 +28,7 @@ then outputs functional information about these SNPs and builds trees.
 8. Mapping checks carried out using calculate_genomecov.sh creating bamfile_coverage.list.
 9. Files selected that pass using select_files.sh which keeps any files with over 90% of the genome covered by at least 1 read. These passed files are symbolically linked in a new directory.
 10. Bcftools mpileup used to call SNPs, with -d 1000 (1000 reads called per position), then bcftools call with –ploidy, multiallelic caller and returning variants only (removing indels).
-11. Each vcf file (one per sample) is then filtered using 4 cut offs set by the config file. The defaults in the config file are those recommended through personal correspondence with Richard Ellis (APHA) or in his GitHub (https://github.com/ellisrichardj/BovTB-nf) and can be found in other publications. The settings as defaults are DP>=10 (At least 10 reads needed to cover a site) & MQ>=30 (mapping quality at least 30) & DP4[2]>=1 & DP4[3]>=1 (at least 1 forward read and 1 reverse read covering the site) & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=95 (allele supported by 95% of the reads covering the site). See appendix for more explanations.
+11. Each vcf file (one per sample) is then filtered using 4 cut offs set by the config file. The defaults in the config file are those used for Mycobacterium bovis analysis (https://github.com/ellisrichardj/BovTB-nf) and can be found in other publications. The settings as defaults are DP>=10 (At least 10 reads needed to cover a site) & MQ>=30 (mapping quality at least 30) & DP4[2]>=1 & DP4[3]>=1 (at least 1 forward read and 1 reverse read covering the site) & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=95 (allele supported by 95% of the reads covering the site). See appendix for more explanations.
 12. Also run through variantpositionfiltering.py and exclude_regions.py which will filter out SNPs within 10bp of each other SNPs and ignores SNPs in regions known as regions of variance of higher mutation (PE/PPE etc) as published previously (Price-Carter et al., 2018).
 13. Filtered vcf files (one for each sample) are then compressed with bgzip, indexed with bcftools, then all files merged using bcftools. Files are merged in 2 steps (because bcftools does not like handling >1021 files in one go) – subsets of 500 files are merged first, then those subsets are merged. These extra files are not deleted just yet because they are relatively small in size even for a data set of ~2000 samples.
 14. Filtered and merged vcf file is then compressed and indexed.
@@ -44,26 +43,28 @@ then outputs functional information about these SNPs and builds trees.
 
 ## Pipeline User Definable Parameters:
 
-1. DATAPATH - Directory path which contains the fastq sample data.
-2. REFPATH - Path to the reference mbovis genome fasta file (mbovisAF212297).
-3. ADAPTERS - Path to the Illumina adapters for trimmomatic read trimming.
-4. EXCLUDED_REGIONS - Path to the file containing delimited list of high-variable regions to be excluded.
-5. REF_FUNC_ANNO - Path to the file used to transfer EggNOG functions to SNP calls.
-6. UNIQ - 'Experiment' appendix to be used in file output.
-7. THREADS - Number of CPU threads to be used for each tool stage.
-8. BWA_THREADS - Number of CPU threads to be used specifically for bwa.
-9. FORWARDPATTERN - Sets the sample raw read file pattern for forward reads.
-10. REVERSEPATTERN - Sets the sample raw read file patterns for reverse reads.
-11. MQ - SNP mapping quality.
-12. DP - SNP read depth.
-13. DP4F - Number of supporting forward reads.
-14. DP4R - Number of supporting reverse reads.
-15. SUPPORT - Percentage of reads needed to support an alternative site.
-16. CLEANUP - Sets the level of file cleanup after completed runtime.
-17. ILLUMINACLIP - Set which adapter and other illumina-specific sequences to be cut from the read.
-18. SLIDINGWINDOW - Set sliding window size to analyse average quality of read.
-19. MINLEN - Set minimum allowed length of read.
-20. AVGQUAL - Set the average quality score used to remove read.
-21. EXCLUDE - Set the GC-rich, highly variable regions to be excluded from the SNP analysis.
-22. GENOME_TREE - Set RAxML to build trees based omn the full genome alignments.
-23. GENOME_TREE - Set RAxML to build trees based omn the full genome alignments with high-GC regions excluded from alignment.
+1.	MYPATH – Path to output directory.
+2.	DATAPATH - Path to raw data (as fastq.gz files, paired reads only)
+3.	REFPATH - Path to the reference mbovis genome fasta file (mbovisAF212297 – provided).
+4.	AUX_TOOLS - Set path to where the aux_tools directory is.
+5.	ADAPTERS - Path to the Illumina adapters for Trimmomatic read trimming (provided).
+6.	REF_FUNC_ANNO - Path to the csv file used to transfer EggNOG functions to SNP calls.
+7.	UNIQ - 'Experiment' appendix to be used in file output.
+8.	FORWARDPATTERN - Sets the sample raw read file pattern for forward reads.
+9.	REVERSEPATTERN - Sets the sample raw read file patterns for reverse reads.
+10.	FASTQC – set to true or false – whether or not to perform FastQC quality checking on raw reads.
+11.	TRIM_FASTQC - set to true or false – whether or not to perform FastQC quality checking on trimmed reads.
+12.	ILLUMINACLIP - Set which adapter and other illumina-specific sequences to be cut from the read.
+13.	SLIDINGWINDOW - Set sliding window size to analyse average quality of read.
+14.	MINLEN - Set minimum allowed length of read.
+15.	AVGQUAL - Set the average quality score used to remove read.
+16.	THREADS - Number of CPU threads to be used for each tool stage.
+17.	BWA_THREADS - Number of CPU threads to be used specifically for bwa.
+18.	MQ - SNP mapping quality.
+19.	DP - SNP read depth.
+20.	DP4F - Number of supporting forward reads.
+21.	DP4R - Number of supporting reverse reads.
+22.	SUPPORT - Percentage of reads needed to support an alternative site.
+23.	SNPEFF_DB – the name of the SnpEff database (this can be one of the default SnpEff databases they provide or one readily made, check the SnpEff manual for this)
+24.	CLEANUP - Sets which files to clean up after completed runtime (options are NONE, TRIMMEDREADS, BAMS, PASSEDFILES, FASTA, VARIANTS).
+
