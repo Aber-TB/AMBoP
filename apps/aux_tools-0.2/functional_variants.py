@@ -15,10 +15,7 @@ import os
 
 def main(): 
     #vcf_file = Taken from stdin. - relative path which should work from within the GitHub repo 
-    ref_functional_annotations = sys.argv[1] #= open("../../../../reference_genome/mbovisAF212297/mbovisAF212297_ref_functional_annotations.csv")
-    ref_functional_annotations = open(ref_functional_annotations)
-    print("HERE - ref func")
-    print(ref_functional_annotations)
+    ref_functional_annotations = open(sys.argv[1])
 
     #First add lines into a list to iterate over them later. 
     lines = [] 
@@ -77,7 +74,6 @@ def main():
     #make dict of gene start and end as key and rest of line in file as value. 
     annotations_dict = {}
     for gene in (gene for gene in ref_functional_annotations if not gene.startswith('#')):
-        print(gene) # debugging
         startpos = int(gene.strip().split(",")[4]) 
         endpos = int(gene.strip().split(",")[5])
         annotations_dict[startpos, endpos] = gene
@@ -113,7 +109,7 @@ if __name__ == "__main__":
               "within genes/coding regions, with all the information from the gff and eggnog" 
               "annotations for each gene that the variant is in.\n"
               "example of use:\n"
-              "cat my.vcf | functional_variants.py")
+              "cat my.vcf | functional_variants.py /path/to/annotation/file")
     else:
         try:
             main()

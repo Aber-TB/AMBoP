@@ -511,7 +511,7 @@ echo -e "\e[1;36m [?] Note: snpEff output can be found in ${UNIQ}_snpeff.out. Th
 if [ $(cat all_interesting_pos.tsv 2>/dev/null | wc -l) -gt 1 ] && [ $(cat variants_in_functional_genes.csv 2>/dev/null | wc -l) -gt 1 ]; then 
     echo -e "\e[1;35m [@] variants_in_functional_genes.csv and all_interesting_pos.tsv output files are already present, check they are complete or remove and rerun AMBoP.\e[0m";
 else
-    cat ${UNIQ}_snpEff.out  | functional_variants.py ${REF_FUNC_ANNO} > ${UNIQ}_functionalvariants.csv;
+    cat ${UNIQ}_snpEff.out  | ${AUX_TOOLS}/functional_variants.py ${REF_FUNC_ANNO};
 fi
 
 echo -e "\e[1;34m [%] Finished getting effects and functional annotations for variants in coding regions. \n\e[0m"  
