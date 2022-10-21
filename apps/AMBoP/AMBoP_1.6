@@ -503,8 +503,6 @@ cd ${MYPATH}/variants/functional
 zcat ${MYPATH}/variants/${UNIQ}_filtered_merged.vcf.gz | sed 's/LT708304.1/Mycobacterium_bovis_AF2122_97/' > ${MYPATH}/variants/${UNIQ}_filtered_merged.edited.vcf
 [ -s ${UNIQ}_snpEff.out ] && echo -e "\e[1;35m [@] snpEff output file already exists in variants/functional. Check it is complete, or delete and rerun AMBoP.\e[0m" || snpEff ${SNPEFF_DB} ${MYPATH}/variants/${UNIQ}_filtered_merged.edited.vcf -formatEff > ${UNIQ}_snpEff.out
 
-####
-#[ -s ${UNIQ}_snpEff.out ] && echo -e "\e[1;35m [@] snpEff output file already exists in variants/functional. Check it is complete, or delete and rerun AMBoP.\e[0m" || snpEff ${SNPEFF_DB} ${MYPATH}/variants/${UNIQ}_filtered_merged.vcf.gz -formatEff > ${UNIQ}_snpEff.out
 
 echo -e "\e[1;36m [?] Note: snpEff output can be found in ${UNIQ}_snpeff.out. This contains much more information about the resulting SNP Effects. See http://pcingola.github.io/SnpEff/se_inputoutput/#eff-field-vcf-output-files for output file format and information included. Only the first reported SNP effect is retained in subsequent functional output files.\e[0m"
 
@@ -521,10 +519,10 @@ echo -e "\e[1;33m [%] Creating sample statistics.\e[0m"
 cd ${MYPATH}
 
 for i in $(ls ${DATAPATH}/*${FORWARDPATTERN}*); do
-    isolate=$(echo ${i} | awk -F "/" '{print $NF}' | sed  "s/_R1/;/" $NF | sed "s/_R2/;/" $NF  | cut -d ";" -f1);  
-#    ${AUX_TOOLS}/read_stats.sh ${isolate} ${CONFIG_DIR}/$1;
-done #|
-     #sed '2,${/^#/d;}' > ${MYPATH}/final_files/read_stats.csv
+    isolate=$(echo ${i} | awk -F "/" '{print $NF}' | sed  "s/_R1/;/" $NF | sed "s/_R2/;/" $NF  | cut -d ";" -f1);
+    ${AUX_TOOLS}/read_stats.sh ${isolate} ${CONFIG_DIR}/$1;
+done |
+     sed '2,${/^#/d;}' > ${MYPATH}/final_files/read_stats.csv
 
 echo -e "\e[1;34m [%] Finished creating sample statistics. \e[0m"  
 

@@ -59,10 +59,9 @@ else flag="[?]CheckRequired";
 fi
 
 #If the file passed, then Look at VCF files 
-if [ -f ${MYPATH}/variants/${isolate_ID}.vcf.gz ]; then
-    Total_SNP_Count=$(zgrep -v "#" ${MYPATH}/variants/${isolate_ID}.vcf.gz | wc -l);
-    sample_column=$(zcat ${MYPATH}/variants/APHA2021_filtered_merged.vcf.gz | awk -v isolate=${isolate_ID} '/#CHROM/{for (i=1; i<=NF; i++) {if ($i ~isolate) {print i} } }' );
-    SNP_Count_After_Filtering=$(zcat ${MYPATH}/variants/APHA2021_filtered_merged.vcf.gz | grep -v "^#" | cut -f ${sample_column} | grep -c -v "\.\:\." )
+if [ -f ${MYPATH}/variants/${isolate_ID}_filtered.vcf.gz ]; then
+    sample_column=$(zcat ${MYPATH}/variants/${UNIQ}_filtered_merged.vcf.gz | awk -v isolate=${isolate_ID} '/#CHROM/{for (i=1; i<=NF; i++) {if ($i ~isolate) {print i} } }' );
+    SNP_Count_After_Filtering=$(zcat ${MYPATH}/variants/${UNIQ}_filtered_merged.vcf.gz | grep -v "^#" | cut -f ${sample_column} | grep -c -v "\.\:\." )
 else
     Total_SNP_Count="Did not pass filter";
     SNP_Count_After_Filtering="Did not pass filter";
@@ -74,6 +73,6 @@ fi
 
 # Print out the values to stdout
 
-echo "#Sample,Raw_Reads_F,Raw_Reads_R,Trimmed_Reads_F,%After_Trim_F,Trimmed_Reads_R,%After_Trim_R,Total_Trimmed_Reads,%Total_Trimmed_Reads,Aligned_Deduped_Reads,%_Aligned,Average_Read_Depth,Avg_Genome_Coverage,Outcome,Total_SNP_Count,SNP_Count_After_Filtering" 
+echo "#Sample,Raw_Reads_F,Raw_Reads_R,Trimmed_Reads_F,%After_Trim_F,Trimmed_Reads_R,%After_Trim_R,Total_Trimmed_Reads,%Total_Trimmed_Reads,Aligned_Deduped_Reads,%_Aligned,Average_Read_Depth,Avg_Genome_Coverage,Outcome,SNP_Count_After_Filtering" 
 
-echo "${isolate_ID},${raw_reads_f},${raw_reads_r},${trimmed_pairedreads_f},${percent_after_trim_f},${trimmed_pairedreads_r},${percent_after_trim_r},${trimmed_reads_total},${percent_after_trim_total},${deduped_aligned_reads},${percent_mapped},${avg_read_depth},${genome_cov},${flag},${Total_SNP_Count},${SNP_Count_After_Filtering}"
+echo "${isolate_ID},${raw_reads_f},${raw_reads_r},${trimmed_pairedreads_f},${percent_after_trim_f},${trimmed_pairedreads_r},${percent_after_trim_r},${trimmed_reads_total},${percent_after_trim_total},${deduped_aligned_reads},${percent_mapped},${avg_read_depth},${genome_cov},${flag},${SNP_Count_After_Filtering}"
