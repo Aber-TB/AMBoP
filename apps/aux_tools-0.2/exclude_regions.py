@@ -44,10 +44,7 @@ if __name__ == "__main__":
               "and filters out variants that fall within regions specified in user provided "
               "exclude-regions-file.txt. "
               "Usage: \n"
-              "cat my.vcf | exclude_regions.py /path/to/exclude-regions-file.txt\n"
-              "---\n"
-              "This takes as input a vcf file from stdout and will filter out any variants that "
-              "fall within repeat regions specified in the script.")
+              "cat my.vcf | exclude_regions.py /path/to/exclude-regions-file.txt\n")
     else:
         try:
             main()

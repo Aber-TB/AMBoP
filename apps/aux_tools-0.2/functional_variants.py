@@ -102,11 +102,11 @@ if __name__ == "__main__":
     if os.isatty(sys.stdin.fileno()) or len(sys.argv) < 2:
         print("Usage: this takes as input a vcf file from stdout and will "
               "output two files: "
-              "all_interesting_pos.tsv contains those positions in the reference genome with"
-              "identified variants in samples, the number of samples that had this alternate"
+              "all_interesting_pos.tsv contains those positions in the reference genome with "
+              "identified variants in samples, the number of samples that had this alternate "
               "and the sample names.\n"
-              "variants_in_functional_genes.csv contains these variant positions that fall" 
-              "within genes/coding regions, with all the information from the gff and eggnog" 
+              "variants_in_functional_genes.csv contains these variant positions that fall " 
+              "within genes/coding regions, with all the information from the gff and eggnog " 
               "annotations provided for each gene that the variant is in.\n"
               "example of use:\n"
               "cat my.vcf | functional_variants.py /path/to/annotation/file")
