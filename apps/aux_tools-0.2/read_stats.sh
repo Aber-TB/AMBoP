@@ -22,8 +22,6 @@ raw_reads_r=$(zgrep -c "^+$" ${DATAPATH}/${isolate_ID}_${REVERSEPATTERN})
 trimmed_pairedreads_f=$(zgrep -c "^+$" ${MYPATH}/trimmed_reads/${isolate_ID}_1_trim_paired.fastq.gz)
 trimmed_pairedreads_r=$(zgrep -c "^+$" ${MYPATH}/trimmed_reads/${isolate_ID}_2_trim_paired.fastq.gz)
 
-
-module load samtools
 deduped_aligned_reads=$(samtools view -c ${MYPATH}/bams/${isolate_ID}_sorted_nodups.bam)
 samtools depth -a ${MYPATH}/bams/${isolate_ID}_sorted_nodups.bam > ${MYPATH}/bams/${isolate_ID}_depth.txt
 avg_read_depth=$(awk '{sum+=$3} END {print sum/NR}' ${MYPATH}/bams/${isolate_ID}_depth.txt)
@@ -60,18 +58,13 @@ fi
 
 #If the file passed, then Look at VCF files 
 if [ -f ${MYPATH}/variants/${isolate_ID}_filtered.vcf.gz ]; then
+    Total_SNP_Count=$(zgrep -v "#" ${MYPATH}/variants/${isolate_ID}.vcf.gz | wc -l);
     sample_column=$(zcat ${MYPATH}/variants/${UNIQ}_filtered_merged.vcf.gz | awk -v isolate=${isolate_ID} '/#CHROM/{for (i=1; i<=NF; i++) {if ($i ~isolate) {print i} } }' );
     SNP_Count_After_Filtering=$(zcat ${MYPATH}/variants/${UNIQ}_filtered_merged.vcf.gz | grep -v "^#" | cut -f ${sample_column} | grep -c -v "\.\:\." )
 else
     Total_SNP_Count="Did not pass filter";
     SNP_Count_After_Filtering="Did not pass filter";
 fi
-
-#Total_SNP_Count=$(zgrep -v "#" ${MYPATH}/variants/${isolate_ID}.vcf.gz | wc -l)
-#sample_column=$(zcat ${MYPATH}/variants/APHA2021_filtered_merged.vcf.gz | awk -v isolate=${isolate_ID} '/#CHROM/{for (i=1; i<=NF; i++) {if ($i ~isolate) {print i} } }' )
-#SNP_Count_After_Filtering=$(zcat ${MYPATH}/variants/APHA2021_filtered_merged.vcf.gz | grep -v "^#" | cut -f ${sample_column} | grep -c -v "\.\:\." )
-
-# Print out the values to stdout
 
 echo "#Sample,Raw_Reads_F,Raw_Reads_R,Trimmed_Reads_F,%After_Trim_F,Trimmed_Reads_R,%After_Trim_R,Total_Trimmed_Reads,%Total_Trimmed_Reads,Aligned_Deduped_Reads,%_Aligned,Average_Read_Depth,Avg_Genome_Coverage,Outcome,SNP_Count_After_Filtering" 
 
