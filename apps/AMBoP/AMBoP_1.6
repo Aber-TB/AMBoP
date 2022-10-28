@@ -237,7 +237,7 @@ for i in $(ls ../trimmed_reads/*_1_trim_paired.fastq.gz); do
               ../trimmed_reads/${file}_1_trim_paired.fastq.gz \
               ../trimmed_reads/${file}_2_trim_paired.fastq.gz  || echo -e "\e[1;31mBWA alignment failed.\e[0m"; exit;
 	}|
-	{ samtools view -F 256 -b || echo -e "\e[1;31mSamtools found an error aligned files.\e[0m"; exit ;
+	{ samtools view -F 2308 -b || echo -e "\e[1;31mSamtools found an error aligned files.\e[0m"; exit ;
 	}|
 	{ samtools sort > ${file}_sorted.bam || echo -e "\e[1;31mSamtools failed to sort the aligned files.\e[0m"; exit;
 	};
@@ -386,7 +386,7 @@ done
 
 
 [ -f ${UNIQ}_filtered_merged.vcf.gz ] && echo -e "\e[1;35m [@] ${UNIQ}_merged.vcf.gz already exists\e[0m" || {
-	ls *_filtered.vcf.gz | split -l 2 - subset_vcfs;
+	ls *_filtered.vcf.gz | split -l 500 - subset_vcfs;
 	for i in $(ls subset_vcf*); do
 	    bcftools merge -l ${i} -O z -o merged_${i}.vcf.gz;
 	    bcftools index merged_${i}.vcf.gz;
