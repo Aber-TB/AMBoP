@@ -2,6 +2,7 @@
 
 now=$(date)
 CONFIG_DIR=$(pwd)
+AMBOP_DIR=$(echo ${0} | sed 's/\/AMBoP_1.6//')
 #This is the header that will print out the welcome message. It checks for adequate input and if not, prints usage. If a user provides "example.config" an example config file will be printed to screen.
 if [ "$#" -eq 0 ]; then
     echo -e "\e[1;35m     ___    __  _______        ____\n   /   |  /  |/  / __ )____  / __ \\n  / /| | / /|_/ / __  / __ \/ /_/ /\n / ___ |/ /  / / /_/ / /_/ / ____/ \n/_/  |_/_/  /_/_____/\____/_/      \e[0m"
@@ -18,7 +19,7 @@ if [ "$#" -eq 0 ]; then
     echo "Check and edit the AMBoP example config file and specify this file when executing AMBoP."
     exit
 elif [ "$1" = "example.config" ]; then
-    cat ./example.config;
+    cat ${AMBOP_DIR}/example.config;
     exit
 fi
 
@@ -39,13 +40,15 @@ echo -e " Config File Used: $1"
 
 
 #Activate environment or if this fails, create the conda environment from the yaml file
-conda activate AMBoP_Conda_env || conda env create --file AMBoP_Conda_env.yml; conda activate AMBoP_Conda_env || exit 
+#source activate AMBoP_Conda_env || conda env create --file AMBoP_Conda_env.yml; source activate AMBoP_Conda_env || echo -e "\e[1;31m [!] Conda cannot activate the environment, exitting. \e[0m" ; exit 
 
-#Add aux_tools to path
-PATH=$PATH:${AUX_TOOLS}
+#echo -e "\e[1;35m [@]Conda environment loaded.\e[0m"
 
 #Source the config file supplied so that the variables are available:
 source $1
+#Add aux_tools to path
+export PATH=$(echo ${AUX_TOOLS}):$PATH
+
 echo -e "\e[1;35m [@] Path to output set to: ${MYPATH}\e[0m"
 echo -e "\e[1;35m [@] Path to raw data files set to: ${DATAPATH}\e[0m"
 echo -e "\e[1;35m [@] Path to aux_tools-0.2 set to: ${AUX_TOOLS}\e[0m"
@@ -287,7 +290,7 @@ if [ -f bamfile_coverage.list ]; then
    cat bamfile_coverage.list;
 else
    for i in $(ls *_sorted_nodups.bam); do 
-       ${AUX_TOOLS}/calculate_genomecov.sh ${i} || exit; 
+       calculate_genomecov.sh ${i} || exit; 
    done > bamfile_coverage.list;
    echo -e "\e[0;32m Bam file coverage: \e[0m";
    cat bamfile_coverage.list;
@@ -301,7 +304,7 @@ if [ $(ls ${MYPATH}/passed_files/ 2>/dev/null | wc -l) -gt 0 ]; then
     echo -e "\n\e[1;31m [!] Passed_files directory exists and is not empty. Check files are correct by comparing with files listed bamfile_coverage.list or remove and rerun. \e[0m";
 else
     for i in $(ls *_sorted_nodups.bam); do 
-	${AUX_TOOLS}/select_files.sh ${i} 1 ${MYPATH}/passed_files || exit; 
+	select_files.sh ${i} 1 ${MYPATH}/passed_files || exit; 
     done;
 fi
 
@@ -366,7 +369,6 @@ echo -e "\e[1;33m [%] Starting filtered vcf file compression and merging. \e[0m"
 for i in $(ls ${MYPATH}/passed_files/*_sorted_nodups.bam); do
     sample=$(echo ${i} | awk -F "/" '{print $NF}' | sed 's/_sorted_nodups.bam/;/' | cut -d ";" -f1)
     if [ -s ${MYPATH}/variants/${sample}_filtered.vcf ]; then
-	rm ${sample}.vcf;
 	bgzip ${sample}_filtered.vcf || { echo -e "\e[1;31mFailed to compress vcf file.\e[0m"; exit ; };
     elif [ -f ${MYPATH}/variants/${sample}_filtered.vcf.gz ]; then
 	echo -e "\e[1;35m [@] ${sample} already compressed.\e[0m";
@@ -411,9 +413,7 @@ echo -e "\e[1;33m\n ------------ \n Starting Fasta file creation. \n -----------
 [ -s ${UNIQ}_filtered_merged.vcf.gz.csi ] && echo -e "\e[1;35m[@] ${UNIQ}_filtered_merged.vcf.gz already indexed\e[0m" || bcftools index ${UNIQ}_filtered_merged.vcf.gz 
 
 for i in $(bcftools query -l ${UNIQ}_filtered_merged.vcf.gz); do 
-    echo $i;
     name=$(echo ${i} | cut -d "_" -f1);
-    echo $name;
     if [ -s ${MYPATH}/fasta_aln/${name}.fasta ]; then
 	echo -e "\e[1;35m${MYPATH}/fasta_aln/${name}.fasta already exists.\e[0m"
     else
