@@ -1,7 +1,7 @@
 # The Centre of Excellence for Bovine Tuberculosis (CBTB) - Aberystwyth M.Bovis Pipeline (AMBoP)
 ## Contacts: Jess Friedersdorff  *jess@friedersdorff.com* - Nicholas Dimonaco *nicholas@dimonaco.co.uk*
 
-![splash_screen](splash_screen_AMBoP_1.6.png)
+![splash_screen](splash_screen_AMBoP_1.6.PNG)
 
 ### Software and versions used:
 bcftools  1.16 | 
