@@ -291,19 +291,21 @@ else
 fi
 
 
-# TODO(JF): Create notification for user of samples being dumped.
+if [ ${BREAK} == true ]; then
+    exit
 
 #Decide whether coverage is enough to continue analysis for each sample. Only run if 'passed_files' is not already empty:
 if [ $(ls ${MYPATH}/passed_files/ 2>/dev/null | wc -l) -gt 0 ]; then 
-    echo -e "\n\e[1;31m [!] Passed_files directory exists and is not empty. Check files are correct by comparing with files listed bamfile_coverage.list or remove and rerun. \e[0m";
+    echo -e "\n\e[1;31m [!] Passed_files directory exists and contains files. Continuing. \e[0m";
 else
     for i in $(ls *_sorted_nodups.bam); do 
-	select_files.sh ${i} 1 ${MYPATH}/passed_files || exit; 
+	select_files.sh ${i} 10 ${MYPATH}/passed_files || exit; 
     done;
+    echo -e "\e[1;33m [%] Finished selecting files using default filtering - these files are in Passed_files directory. \e[0m"
 fi
 
 
-echo -e "\e[1;34m [%] Finished read mapping checks. \e[0m"
+echo -e "\e[1;34m [%] Finished read mapping checks.\e[0m"
 
 
 ##################

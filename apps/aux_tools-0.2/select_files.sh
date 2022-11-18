@@ -2,13 +2,13 @@
 
 
 if [ "$#" -ne 3 ]; then
-    echo "select_files.sh - M. bovis specific tool to copy files that pass the coverage filter into a new directory, based on >90% of the genome having either at least 1x or 20x coverage."
+    echo "select_files.sh - M. bovis specific tool to copy files that pass the coverage filter into a new directory, based on >90% of the genome having either at least 1x or 10x coverage."
     echo "Script usage:"
-    echo "select_files.sh <bam file> <filtering type (1 or 20)> <output directory>"
+    echo "select_files.sh <bam file> <filtering type (1 or 10)> <output directory>"
     echo "---"
     echo "Copies aligned bam files to specified output directory if they pass the filter. You must set the filtering type to either:"
     echo "1: >90% of the sites in the reference genome has a depth of >=1"
-    echo "20: >90% of the sites in the reference genome has a depth of >=20."
+    echo "20: >90% of the sites in the reference genome has a depth of >=10."
     echo "Note that this will call calculate_genomecov.sh which creates a temporary file called <bam file>.genomecov.temp, which will be removed at the end of the script."
 
 else
