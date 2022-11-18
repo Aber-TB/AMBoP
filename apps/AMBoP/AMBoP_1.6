@@ -38,12 +38,6 @@ echo -e " White text is output from tools or programs, which may or may not have
 
 echo -e " Config File Used: $1"  
 
-
-#Activate environment or if this fails, create the conda environment from the yaml file
-#source activate AMBoP_Conda_env || conda env create --file AMBoP_Conda_env.yml; source activate AMBoP_Conda_env || echo -e "\e[1;31m [!] Conda cannot activate the environment, exitting. \e[0m" ; exit 
-
-#echo -e "\e[1;35m [@]Conda environment loaded.\e[0m"
-
 #Source the config file supplied so that the variables are available:
 source $1
 #Add aux_tools to path
@@ -350,8 +344,8 @@ for i in $(ls ${MYPATH}/passed_files/*_sorted_nodups.bam); do
 	echo -e "\e[1;35m [@] ${name} vcf has already been filtered and compressed.\e[0m"
     else
 	bcftools filter -i "DP>=${DP} & MQ>=${MQ} & DP4[2]>=${DP4F} & DP4[3]>=${DP4R} & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=${SUPPORT}" ${name}.vcf |
-	    ${AUX_TOOLS}/variantpositionfiltering.py ${VAR_POS_NUM} |
-	    ${AUX_TOOLS}/exclude_regions.py ${REGIONS}  > ${name}_filtered.vcf;
+	    variantpositionfiltering.py ${VAR_POS_NUM} |
+	    exclude_regions.py ${REGIONS}  > ${name}_filtered.vcf;
 	echo -e "\e[1;35m [@] Finished filtering variants for sample\e[0m \e[0;32m ${name} \e[0m";
     fi;
 done
@@ -406,121 +400,134 @@ echo -e "\e[1;34m [%] Finished vcf file merging. \e[0m"
 
 #then make the Fasta files for each sample and put them in the corresponding directory and catenate them into one. Also rename the genomes in the fasta files so that it contains the sample name, otherwise they won't be distinguishable in subsequent analyses.
 
-echo -e "\e[1;33m\n ------------ \n Starting Fasta file creation. \n ------------ \n\e[0m"
+if [ ${TREE} == true ]; then
 
-[ -s ${UNIQ}_filtered_merged.vcf.gz ] && echo -e "\e[1;35m[@] ${UNIQ}_filtered_merged.vcf.gz already exists\e[0m" || bgzip ${UNIQ}_filtered_merged.vcf
+    echo -e "\e[1;33m\n ------------ \n Starting Fasta file creation. \n ------------ \n\e[0m"
 
-[ -s ${UNIQ}_filtered_merged.vcf.gz.csi ] && echo -e "\e[1;35m[@] ${UNIQ}_filtered_merged.vcf.gz already indexed\e[0m" || bcftools index ${UNIQ}_filtered_merged.vcf.gz 
+    [ -s ${UNIQ}_filtered_merged.vcf.gz ] && echo -e "\e[1;35m[@] ${UNIQ}_filtered_merged.vcf.gz already exists\e[0m" || bgzip ${UNIQ}_filtered_merged.vcf
 
-for i in $(bcftools query -l ${UNIQ}_filtered_merged.vcf.gz); do 
-    name=$(echo ${i} | cut -d "_" -f1);
-    if [ -s ${MYPATH}/fasta_aln/${name}.fasta ]; then
-	echo -e "\e[1;35m${MYPATH}/fasta_aln/${name}.fasta already exists.\e[0m"
+    [ -s ${UNIQ}_filtered_merged.vcf.gz.csi ] && echo -e "\e[1;35m[@] ${UNIQ}_filtered_merged.vcf.gz already indexed\e[0m" || bcftools index ${UNIQ}_filtered_merged.vcf.gz 
+
+    for i in $(bcftools query -l ${UNIQ}_filtered_merged.vcf.gz); do 
+	name=$(echo ${i} | cut -d "_" -f1);
+	if [ -s ${MYPATH}/fasta_aln/${name}.fasta ]; then
+	    echo -e "\e[1;35m${MYPATH}/fasta_aln/${name}.fasta already exists.\e[0m"
+	else
+	    echo -e "\e[1;33mMaking Fasta for ${i}\e[0m"; 
+            bcftools consensus \
+		     --fasta-ref $REFPATH \
+		     --sample ${i}  \
+		     ${UNIQ}_filtered_merged.vcf.gz | 
+		sed "s/^>/>${name} /" > $MYPATH/fasta_aln/${name}.fasta || { echo -e "\e[1;31mCannot create fasta files. Check MYPATH variable.\e[0m"; exit; }; 
+	fi;
+    done
+
+    cd $MYPATH/fasta_aln
+
+    cat $REFPATH *.fasta > $UNIQ.aln
+
+    ###################
+
+    echo -e "\e[1;34m [%] Finished Fasta file creation. Alignment file has been created. \e[0m"
+
+    #Run snp-sites to extract the SNP sites from the alignment file.
+
+    echo -e "\e[1;33m [%] Starting SNP_Sites. \e[0m"
+
+    
+    [ -s ${UNIQ}.snp_sites.aln ] && echo -e "\e[1;35m [@] snp-sites already completed.\e[0m" || snp-sites -mvp -o ${UNIQ} ${UNIQ}.aln
+    [ -s ${UNIQ}_fconst.aln ] && echo -e "\e[1;35m [@] Constant sites already calculated.\e[0m" || snp-sites -mvpC -o ${UNIQ}_fconst.aln ${UNIQ}.aln
+
+    echo -e "\e[1;34m [%] Finished Fasta file creation. Alignment files have been created. \e[0m"
+
+    #Move into the tree directory, copy the aligned SNPs file and load RAxML for tree building. 
+
+    echo -e "\e[1;33m [%] Starting Tree building with RAxML.\e[0m"
+
+    [ -f ../tree/${UNIQ}.aln ] && echo -e "\e[1;35m [@] ${UNIQ}.aln already copied.\e[0m" || cp ${UNIQ}.aln ../tree/
+    [ -f ../tree/${UNIQ}_fconst.aln ] && echo -e "\e[1;35m [@] ${UNIQ}_fconst.aln already copied.\e[0m" || cp ${UNIQ}_fconst.aln ../tree/
+    [ -f ../tree/${UNIQ}.phylip ] && echo -e "\e[1;35m [@] ${UNIQ}.phylip already copied.\e[0m" || cp ${UNIQ}.phylip ../tree/
+    [ -f ../tree/${UNIQ}.snp_sites.aln ] && echo -e "\e[1;35m [@] ${UNIQ}.snp_sites.aln already copied.\e[0m" || cp ${UNIQ}.snp_sites.aln ../tree/
+
+    cd ../tree
+    [ -d RAxML ] || mkdir RAxML 
+
+    if [ -s ${MYPATH}/tree/RAxML/RAxML_bestTree.${UNIQ}_SNP_Tree ]; then
+	echo -e "\e[1;35m [@] RAxML SNP tree file already created at ${MYPATH}/tree/RAxML/RAxML_bestTree.${UNIQ}_SNP_Tree\e[0m";
     else
-	echo -e "\e[1;33mMaking Fasta for ${i}\e[0m"; 
-        bcftools consensus \
-		 --fasta-ref $REFPATH \
-		 --sample ${i}  \
-		 ${UNIQ}_filtered_merged.vcf.gz | 
-	    sed "s/^>/>${name} /" > $MYPATH/fasta_aln/${name}.fasta || { echo -e "\e[1;31mCannot create fasta files. Check MYPATH variable.\e[0m"; exit; }; 
-    fi;
-done
+	{
+	    raxmlHPC-PTHREADS-SSE3 -T ${THREADS} -f a -p 12345 -x 12345 -# 100 -m GTRCAT -s ${UNIQ}.snp_sites.aln -n ${UNIQ}_SNP_Tree -w ${MYPATH}/tree/RAxML \
+		|| echo -e "\e[1;31m [!] RAxML did not run successfully. Check required file ${UNIQ}/snp_sites.aln is present in the tree directory. Alternatively, if AMBoP was cancelled prematurely, remove all tree files and run again.\e[0m"; }
+    fi
 
-cd $MYPATH/fasta_aln
 
-cat $REFPATH *.fasta > $UNIQ.aln
+    echo -e "\e[1;34m [%] Finished Tree building with RAxML. \n\e[0m";
+    echo -e "\e[1;36m [?] Final tree file is in file RAxML_bipartitionsBranchLabels.${UNIQ} \e[0m"
 
-###################
+    #########################
+    #Make tree with model predictions and constant sites with IQTree
 
-echo -e "\e[1;34m [%] Finished Fasta file creation. Alignment file has been created. \e[0m"
+    echo -e "\e[1;33m [%] Starting Tree building with IQ-Tree.\e[0m"
 
-#Load and run snp-sites to extract the SNP sites from the alignment file.
+    [ -d IQTree ] || mkdir IQTree
 
-echo -e "\e[1;33m [%] Starting SNP_Sites. \e[0m"
+    if [ ! -f IQTree/${UNIQ}.treefile ] && [ -s ${UNIQ}_fconst.aln ]; then
+	iqtree -nt AUTO -s ${UNIQ}.phylip -m MFP -bb 1000 -fconst $(cat ${UNIQ}_fconst.aln) -pre IQTree/${UNIQ};
+    elif [ ! -s ${UNIQ}_fconst.aln ]; then
+	echo -e "\e[1;31m [!] ${UNIQ}_fconst.aln not available. IQTree will not run successfully without this file.\e[0m"
+    else 
+	echo -e "\e[1;35m [@] IQTree files already present\e[0m"
+    fi
+    
+    echo -e "\e[1;34m [%] Finished Tree building with IQ-Tree. \n\e[0m"
+    echo -e "\e[1;36m [?] Final tree file is in file ${UNIQ}.treefile \e[0m"
+    
+    echo -e "\e[1;36m [?] iTOL annotation files to add colour to trees can be created automatically using a metadata file and iTol_range_annotation_maker.py in the aux_tools module. Visualisation of presence or absence of SNPs in functional genes can be done using a binary matrix annotation add onto the tree, for which the tool iTol_binary_annotation_maker.py exists in the misc_tools-* module.\e[0m"
 
-#module load snp-sites/2.5.1
-
-[ -s ${UNIQ}.snp_sites.aln ] && echo -e "\e[1;35m [@] snp-sites already completed.\e[0m" || snp-sites -mvp -o ${UNIQ} ${UNIQ}.aln
-[ -s ${UNIQ}_fconst.aln ] && echo -e "\e[1;35m [@] Constant sites already calculated.\e[0m" || snp-sites -mvpC -o ${UNIQ}_fconst.aln ${UNIQ}.aln
-
-echo -e "\e[1;34m [%] Finished Fasta file creation. Alignment files have been created. \e[0m"
-
-#Move into the tree directory, copy the aligned SNPs file and load RAxML for tree building. 
-
-echo -e "\e[1;33m [%] Starting Tree building with RAxML.\e[0m"
-
-[ -f ../tree/${UNIQ}.aln ] && echo -e "\e[1;35m [@] ${UNIQ}.aln already copied.\e[0m" || cp ${UNIQ}.aln ../tree/
-[ -f ../tree/${UNIQ}_fconst.aln ] && echo -e "\e[1;35m [@] ${UNIQ}_fconst.aln already copied.\e[0m" || cp ${UNIQ}_fconst.aln ../tree/
-[ -f ../tree/${UNIQ}.phylip ] && echo -e "\e[1;35m [@] ${UNIQ}.phylip already copied.\e[0m" || cp ${UNIQ}.phylip ../tree/
-[ -f ../tree/${UNIQ}.snp_sites.aln ] && echo -e "\e[1;35m [@] ${UNIQ}.snp_sites.aln already copied.\e[0m" || cp ${UNIQ}.snp_sites.aln ../tree/
-
-cd ../tree
-[ -d RAxML ] || mkdir RAxML 
-
-if [ -s ${MYPATH}/tree/RAxML/RAxML_bestTree.${UNIQ}_SNP_Tree ]; then
-    echo -e "\e[1;35m [@] RAxML SNP tree file already created at ${MYPATH}/tree/RAxML/RAxML_bestTree.${UNIQ}_SNP_Tree\e[0m";
 else
-    {
-	raxmlHPC-PTHREADS-SSE3 -T ${THREADS} -f a -p 12345 -x 12345 -# 100 -m GTRCAT -s ${UNIQ}.snp_sites.aln -n ${UNIQ}_SNP_Tree -w ${MYPATH}/tree/RAxML \
-	    || echo -e "\e[1;31m [!] RAxML did not run successfully. Check required file ${UNIQ}/snp_sites.aln is present in the tree directory. Alternatively, if AMBoP was cancelled prematurely, remove all tree files and run again.\e[0m"; }
+    echo -e "\e[1;34m [%] Skipping Tree building.\e[0m"
 fi
 
-
-echo -e "\e[1;34m [%] Finished Tree building with RAxML. \n\e[0m";
-echo -e "\e[1;36m [?] Final tree file is in file RAxML_bipartitionsBranchLabels.${UNIQ} \e[0m"
-
-#########################
-#Make tree with model predictions and constant sites with IQTree
-
-echo -e "\e[1;33m [%] Starting Tree building with IQ-Tree.\e[0m"
-
-[ -d IQTree ] || mkdir IQTree
-
-if [ ! -f IQTree/${UNIQ}.treefile ] && [ -s ${UNIQ}_fconst.aln ]; then
-    iqtree -nt AUTO -s ${UNIQ}.phylip -m MFP -bb 1000 -fconst $(cat ${UNIQ}_fconst.aln) -pre IQTree/${UNIQ};
-elif [ ! -s ${UNIQ}_fconst.aln ]; then
-    echo -e "\e[1;31m [!] ${UNIQ}_fconst.aln not available. IQTree will not run successfully without this file.\e[0m"
-else 
-    echo -e "\e[1;35m [@] IQTree files already present\e[0m"
-fi
-
-echo -e "\e[1;34m [%] Finished Tree building with IQ-Tree. \n\e[0m"
-echo -e "\e[1;36m [?] Final tree file is in file ${UNIQ}.treefile \e[0m"
-
-echo -e "\e[1;36m [?] iTOL annotation files to add colour to trees can be created automatically using a metadata file and iTol_range_annotation_maker.py in the misc_tools-* module. Visualisation of presence or absence of SNPs in functional genes can be done using a binary matrix annotation add onto the tree, for which the tool iTol_binary_annotation_maker.py exists in the misc_tools-* module.\e[0m"
-
-
-##########################
+ ##########################
 
 #Run snpEff to look at SNP Effects. Do this on the merged vcf file, and receive three output files - a html, a gene file and a designated output file in VCF format. Then also run the script to return two files, one (all_interesting_pos.tsv) containing the positions of the variants, reference allele, alternate allele, the number of samples and list of sample names (simplified VCF) and another file (variants_in_functional_genes.csv) which contains those variant positions that fall within genes/coding regions, with all the information from the gff and eggnog annotations provided for each gene that the variants are is in.
 
-echo -e "\e[1;33m [%] Getting effects and functional annotations of variants in coding regions.\e[0m"
+if [ ${FUNCTIONAL} == true ]; then
+    
+    echo -e "\e[1;33m [%] Getting effects and functional annotations of variants in coding regions.\e[0m"
 
-cd ${MYPATH}/variants/functional
+    cd ${MYPATH}/variants/functional
+    
+    ###This fix is required only for use with Mycobacterium bovis analysis:
+    
+    zcat ${MYPATH}/variants/${UNIQ}_filtered_merged.vcf.gz | sed 's/LT708304.1/Mycobacterium_bovis_AF2122_97/' > ${MYPATH}/variants/${UNIQ}_filtered_merged.edited.vcf
+    [ -s ${UNIQ}_snpEff.out ] && echo -e "\e[1;35m [@] snpEff output file already exists in variants/functional. Check it is complete, or delete and rerun AMBoP.\e[0m" || snpEff ${SNPEFF_DB} ${MYPATH}/variants/${UNIQ}_filtered_merged.edited.vcf -formatEff > ${UNIQ}_snpEff.out
 
-###This fix is required only for use with Mycobacterium bovis analysis:
 
-zcat ${MYPATH}/variants/${UNIQ}_filtered_merged.vcf.gz | sed 's/LT708304.1/Mycobacterium_bovis_AF2122_97/' > ${MYPATH}/variants/${UNIQ}_filtered_merged.edited.vcf
-[ -s ${UNIQ}_snpEff.out ] && echo -e "\e[1;35m [@] snpEff output file already exists in variants/functional. Check it is complete, or delete and rerun AMBoP.\e[0m" || snpEff ${SNPEFF_DB} ${MYPATH}/variants/${UNIQ}_filtered_merged.edited.vcf -formatEff > ${UNIQ}_snpEff.out
+    echo -e "\e[1;36m [?] Note: snpEff output can be found in ${UNIQ}_snpeff.out. This contains much more information about the resulting SNP Effects. See http://pcingola.github.io/SnpEff/se_inputoutput/#eff-field-vcf-output-files for output file format and information included. Only the first reported SNP effect is retained in subsequent functional output files.\e[0m"
 
+    if [ $(cat all_interesting_pos.tsv 2>/dev/null | wc -l) -gt 1 ] && [ $(cat variants_in_functional_genes.csv 2>/dev/null | wc -l) -gt 1 ]; then 
+	echo -e "\e[1;35m [@] variants_in_functional_genes.csv and all_interesting_pos.tsv output files are already present, check they are complete or remove and rerun AMBoP.\e[0m";
+    else
+	cat ${UNIQ}_snpEff.out  | functional_variants.py ${REF_FUNC_ANNO};
+    fi
+    
+    echo -e "\e[1;34m [%] Finished getting effects and functional annotations for variants in coding regions. \n\e[0m"  
+    
+    echo -e "\e[1;33m [%] Creating sample statistics.\e[0m"
 
-echo -e "\e[1;36m [?] Note: snpEff output can be found in ${UNIQ}_snpeff.out. This contains much more information about the resulting SNP Effects. See http://pcingola.github.io/SnpEff/se_inputoutput/#eff-field-vcf-output-files for output file format and information included. Only the first reported SNP effect is retained in subsequent functional output files.\e[0m"
-
-if [ $(cat all_interesting_pos.tsv 2>/dev/null | wc -l) -gt 1 ] && [ $(cat variants_in_functional_genes.csv 2>/dev/null | wc -l) -gt 1 ]; then 
-    echo -e "\e[1;35m [@] variants_in_functional_genes.csv and all_interesting_pos.tsv output files are already present, check they are complete or remove and rerun AMBoP.\e[0m";
 else
-    cat ${UNIQ}_snpEff.out  | ${AUX_TOOLS}/functional_variants.py ${REF_FUNC_ANNO};
+    echo -e "\e[1;33m [%] Skipping Functional Analysis.\e[0m"
 fi
 
-echo -e "\e[1;34m [%] Finished getting effects and functional annotations for variants in coding regions. \n\e[0m"  
-
-echo -e "\e[1;33m [%] Creating sample statistics.\e[0m"
+############################
+#Final steps - calculate some read stats and remove files if set, and move final files around. 
 
 cd ${MYPATH}
-
+   
 for i in $(ls ${DATAPATH}/*${FORWARDPATTERN}*); do
     isolate=$(echo ${i} | awk -F "/" '{print $NF}' | sed  "s/_R1/;/" $NF | sed "s/_R2/;/" $NF  | cut -d ";" -f1);
-    ${AUX_TOOLS}/read_stats.sh ${isolate} ${CONFIG_DIR}/$1;
+    read_stats.sh ${isolate} ${CONFIG_DIR}/$1;
 done |
      sed '2,${/^#/d;}' > ${MYPATH}/final_files/read_stats.csv
 
