@@ -293,7 +293,8 @@ fi
 
 if [ ${BREAK} == true ]; then
     exit
-
+fi
+ 
 #Decide whether coverage is enough to continue analysis for each sample. Only run if 'passed_files' is not already empty:
 if [ $(ls ${MYPATH}/passed_files/ 2>/dev/null | wc -l) -gt 0 ]; then 
     echo -e "\n\e[1;31m [!] Passed_files directory exists and contains files. Continuing. \e[0m";

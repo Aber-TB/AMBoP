@@ -24,10 +24,10 @@ else
 	    cd ${current_dir};
 	    echo "Copied $1.";
 	fi;
-    elif [ $2 = 20 ]; then
-	cov_20=$(calculate_genomecov.sh $1 |
+    elif [ $2 = 10 ]; then
+	cov_10=$(calculate_genomecov.sh $1 |
         awk '{if ($3 >= 90) print "1"; else print "0"}'); 
-        if [ $cov_20 = 1 ]; then
+        if [ $cov_10 = 1 ]; then
 	    cd $3;
             ln -s ${current_dir}/$1;
             ln -s ${current_dir}/$1.bai;
@@ -35,6 +35,6 @@ else
 	    echo "Copied $1..."
         fi;
     else
-	echo "Need to specify filtering type as either 1 or 20."
+	echo "Need to specify filtering type as either 1 or 10."
     fi;
 fi

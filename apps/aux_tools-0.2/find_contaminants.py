@@ -35,10 +35,10 @@ if __name__ == "__main__":
     if os.isatty(sys.stdin.fileno()):
         print("find_contaminants.py"
               "Find aligned read contaminants in bamfile.\n"
-              "Use samtools view to visualise the bamfile, then pipe it to this python script and provide the path to the kraken file."
+              "Use samtools view to visualise the bamfile, then pipe it to this python script and provide the path to the kraken file.\n"
               "Output is a percentage of the number of contaminants as a total of all reads that aligned, then a colon, followed by a"
-              "semicolon separated list of kraken taxa the contaminants are assigned as."
-              ""
+              "semicolon separated list of kraken taxa the contaminants are assigned as.\n"
+              "---\n"
               "eg samtools view my_aligned_reads.bam | find_contaminants.py my_kraken_file.kraken")
     else:
         main()
