@@ -7,7 +7,7 @@ if [ "$#" -eq 0 ]; then
     echo "Script usage:"
     echo "reads_stats.sh <sample name> <AMBoP config file>"
     echo ""
-    echo "i.e. read_stats.sh SRR12345678"
+    echo "i.e. read_stats.sh SRR12345678 file.config"
     exit
 fi
 
