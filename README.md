@@ -1,7 +1,7 @@
 # The Centre of Excellence for Bovine Tuberculosis (CBTB) - Aberystwyth M.Bovis Pipeline (AMBoP)
 ## Contacts: Jess Friedersdorff  *jess@friedersdorff.com* - Nicholas Dimonaco *nicholas@dimonaco.co.uk*
 
-![splash_screen](splash_screen_AMBoP_1.6.PNG)
+![splash_screen](splash_screen_AMBoP_1.6.1.PNG)
 
 ### Software and versions used:
 bcftools  1.16 | 
@@ -46,7 +46,7 @@ Then AMBoP works briefly as follows:
 15 a. Snp-sites is used to find SNPs across all samples and make a pseudo-genome sequence for each sample. It is also used to calculate how many constant sites there are.
 15 b. RAxML used to build tree using maximum likelihood, with fast bootstraps (100), seeds set to 12345, and GTRCAT model.
 15 c. IQTree used to build tree using model prediction and fast bootstraps (1000).
-16. OPTIONAL – if user requested functional information,  SnpEff is used to predict effect of SNPs and then also run functional_variants.py to find those SNPs within functional genes.
+16. OPTIONAL – if user requested functional information,  SnpEff is used to predict effect of SNPs and then also run functional_variants.py to find those SNPs within functional genes. A custom snpEff database is built autoamtically using the provided Genbank file for the reference genome.
 17. Some read statistics are calculated from raw reads, trimmed reads, aligned bam files and from the vcf files and put together into a csv file using read_stats.sh (provided in aux-tools)
 18. Finally there is a clear up phase. A final_files directory is made here, and any of the functional outputs (SnpEff and functional_variants.py outputs), any input and output tree files from both RAxML and IQTree, the merged vcf file and the bam file coverage list file are all copied into this directory.
 19. Then directories may be deleted, depending on what is specified in the config file by the user. Options are “TRIMMEDREADS” to remove trimmed reads, “BAMS” to remove bam files, “PASSEDFILES” to remove the directory with the symbolically links bam files that passed the genome coverage filter, “FASTA” which removes all the FASTA files, and “VARIANTS” which removes the variants directory containing all the individual vcfs, or “ALL” which will remove all of the listed.
@@ -80,7 +80,7 @@ Then AMBoP works briefly as follows:
 25.	SUPPORT - Percentage of reads needed to support an alternative site.
 26.	VAR_POS_NUM - The number of base pairs that a variant can be away from another variant reported.
 27.	REGIONS - Path to a file that contains a list of regions, with one region per line, and start and end positions separated by a comma - 12345,67890. (If no regions to be excluded, set file to 0,0).
-28.	SNPEFF_DB – the name of the SnpEff database (this can be one of the default SnpEff databases they provide or one readily made, check the SnpEff manual for this)
+28.	SNPEFF_DB – the name of the SnpEff database (this can be one of the default SnpEff databases they provide or one readily made, check the SnpEff manual for this). Default is Mycobacterium_bovis_LT708304.1, the custom database automatically created by AMBoP on first run for the reference genome.
 29.	CLEANUP - Sets which files to clean up after completed runtime (options are NONE, TRIMMEDREADS, BAMS, PASSEDFILES, FASTA, VARIANTS).
 
 
