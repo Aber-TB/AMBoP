@@ -1,3 +1,4 @@
+#! /bin/bash
 #$1 is the name of the file to be checked to see if it passes the threshold (set to 90%)
 
 
@@ -14,20 +15,20 @@ if [ "$#" -ne 3 ]; then
 else
     current_dir=$(pwd)
     [ -d $3 ] || mkdir -p $3
-    if [ $2 = 1 ]; then
+    if [ $2 == 1 ]; then
 	cov_1=$(calculate_genomecov.sh $1 |
         awk '{if ($2 >= 90) print "1"; else print "0"}')
-        if [ $cov_1 = 1 ]; then
+        if [ $cov_1 == 1 ]; then
 	    cd $3;
 	    ln -s ${current_dir}/$1;
 	    ln -s ${current_dir}/$1.bai;
 	    cd ${current_dir};
 	    echo "Copied $1.";
 	fi;
-    elif [ $2 = 10 ]; then
+    elif [ $2 == 10 ]; then
 	cov_10=$(calculate_genomecov.sh $1 |
         awk '{if ($3 >= 90) print "1"; else print "0"}'); 
-        if [ $cov_10 = 1 ]; then
+        if [ $cov_10 == 1 ]; then
 	    cd $3;
             ln -s ${current_dir}/$1;
             ln -s ${current_dir}/$1.bai;

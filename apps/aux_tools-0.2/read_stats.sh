@@ -48,7 +48,7 @@ genome_cov=$(echo "scale=4; (100-(${zero_coverage_count}/${Total_ref_sites}*100)
 if [ ${avg_read_depth%%.*} -ge ${mindepth} ] && [ ${percent_mapped%%.*} -ge ${min_percent_mapped} ] && [ ${trimmed_reads_total} -ge ${minreads} ]; then 
     flag="[P]Pass";
 elif [ ${avg_read_depth%%.*} -ge ${mindepth} ] && [ ${percent_mapped%%.*} -lt ${min_percent_mapped} ] && [ ${trimmed_reads_total} -ge ${minreads} ]; then
-    flag="[p]Pass, Impure Sample";
+    flag="[p]Pass; Impure Sample";
 elif [ ${avg_read_depth%%.*} -lt ${mindepth} ] && [ ${percent_mapped%%.*} -lt ${min_percent_mapped} ] && [ ${trimmed_reads_total} -ge ${minreads} ]; then 
     flag="[!]Contaminated";
 elif [ ${avg_read_depth%%.*} -lt ${mindepth} ] && [ ${trimmed_reads_total} -lt ${minreads} ]; then 
