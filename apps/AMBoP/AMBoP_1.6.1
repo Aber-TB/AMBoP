@@ -509,7 +509,7 @@ if [ ${FUNCTIONAL} == true ]; then
 
     cd ${MYPATH}/variants/functional
     
-    [ -s ${UNIQ}_snpEff.out ] && echo -e "\e[1;35m [@] snpEff output file already exists in variants/functional. Check it is complete, or delete and rerun AMBoP.\e[0m" || snpEff ${SNPEFF_DB} ${MYPATH}/variants/${UNIQ}_filtered_merged.edited.vcf -formatEff > ${UNIQ}_snpEff.out
+    [ -s ${UNIQ}_snpEff.out ] && echo -e "\e[1;35m [@] snpEff output file already exists in variants/functional. Check it is complete, or delete and rerun AMBoP.\e[0m" || snpEff ${SNPEFF_DB} ${MYPATH}/variants/${UNIQ}_filtered_merged.vcf -formatEff > ${UNIQ}_snpEff.out
 
 
     echo -e "\e[1;36m [?] Note: snpEff output can be found in ${UNIQ}_snpeff.out. This contains much more information about the resulting SNP Effects. See http://pcingola.github.io/SnpEff/se_inputoutput/#eff-field-vcf-output-files for output file format and information included. Only the first reported SNP effect is retained in subsequent functional output files.\e[0m"
