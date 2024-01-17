@@ -56,7 +56,7 @@ def main():
             # For each sample, get the file name, if it has the variant, add to a
             # list and count the number of samples for each variant.
             for idx, sample in enumerate(gtpl):
-                if sample != ".:." or sample != "0:.":
+                if sample != ".:." and sample != "0:.":
                     samplename = sample_list[idx].split("_sorted")[0]
                     samples_with_var.append(samplename)
                     number_of_samples = [str(len(samples_with_var))]
