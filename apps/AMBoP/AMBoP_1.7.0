@@ -346,9 +346,10 @@ for i in $(ls ${MYPATH}/passed_files/*_sorted_nodups.bam); do
     elif [ -s ${MYPATH}/variants/${name}_filtered.vcf.gz ]; then
 	echo -e "\e[1;35m [@] ${name} vcf has already been filtered and compressed.\e[0m"
     else
-	bcftools filter -i --threads ${THREADS} "DP>=${DP} & MQ>=${MQ} & DP4[2]>=${DP4F} & DP4[3]>=${DP4R} & (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])>=${SUPPORT}" ${name}.vcf |
+	bcftools filter --threads ${THREADS} -S . -e "DP<${DP} | MQ<${MQ} | DP4[2]<${DP4F} | DP4[3]<${DP4R} | (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])<${SUPPORT}" --soft-filter "FAILED-SNP" --mode + ${name}.vcf |
 	    variantpositionfiltering.py ${VAR_POS_NUM} |
-	    exclude_regions.py ${REGIONS}  > ${name}_filtered.vcf;
+	    bcftools filter --threads ${THREADS} --mask-file ${REGIONS} --soft-filter "VAR-REGION" | 
+            bcftools filter -e 'FILTER="VAR-REGION"' ${name}_filtered.vcf > ${name}_filtered.vcf;
 	echo -e "\e[1;35m [@] Finished filtering variants for sample\e[0m \e[0;32m ${name} \e[0m";
     fi;
 done
@@ -387,11 +388,12 @@ done
 [ -f ${UNIQ}_filtered_merged.vcf.gz ] && echo -e "\e[1;35m [@] ${UNIQ}_merged.vcf.gz already exists\e[0m" || {
 	ls *_filtered.vcf.gz | split -l 500 - subset_vcfs;
 	for i in $(ls subset_vcf*); do
-	    bcftools merge -l ${i} -O z -o merged_${i}.vcf.gz;
+		# assume genotypes at missing sites are 0/0:
+	    bcftools merge -l ${i} -0 -O z -o merged_${i}.vcf.gz;
 	    bcftools index merged_${i}.vcf.gz;
 	done;
 	ls merged_*.vcf.gz > merged_subsets.list
-	bcftools merge -l merged_subsets.list -O z -o ${UNIQ}_filtered_merged.vcf.gz ;
+	bcftools merge -l merged_subsets.list -0 -O z -o ${UNIQ}_filtered_merged.vcf.gz ;
 }
 
 
@@ -411,17 +413,14 @@ if [ ${TREE} == true ]; then
 
     [ -s ${UNIQ}_filtered_merged.vcf.gz.csi ] && echo -e "\e[1;35m[@] ${UNIQ}_filtered_merged.vcf.gz already indexed\e[0m" || bcftools index ${UNIQ}_filtered_merged.vcf.gz 
 
-    for i in $(bcftools query -l ${UNIQ}_filtered_merged.vcf.gz); do 
+    for i in *filtered.vcf.gz; do 
 	name=$(echo ${i} | cut -d "_" -f1);
 	if [ -s ${MYPATH}/fasta_aln/${name}.fasta ]; then
 	    echo -e "\e[1;35m${MYPATH}/fasta_aln/${name}.fasta already exists.\e[0m"
 	else
 	    echo -e "\e[1;33mMaking Fasta for ${i}\e[0m"; 
-            bcftools consensus \
-		     --fasta-ref $REFPATH \
-		     --sample ${i}  \
-		     ${UNIQ}_filtered_merged.vcf.gz | 
-		sed "s/^>/>${name} /" > $MYPATH/fasta_aln/${name}.fasta || { echo -e "\e[1;31mCannot create fasta files. Check MYPATH variable.\e[0m"; exit; }; 
+            bcftools consensus -M N --fasta-ref $REFPATH ${i} | 
+		sed "s/^>.*$/>${name}/" > $MYPATH/fasta_aln/${name}.fasta || { echo -e "\e[1;31mCannot create fasta files. Check MYPATH variable.\e[0m"; exit; }; 
 	fi;
     done
 
