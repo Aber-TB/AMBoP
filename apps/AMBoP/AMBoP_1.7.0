@@ -349,7 +349,7 @@ for i in $(ls ${MYPATH}/passed_files/*_sorted_nodups.bam); do
 	bcftools filter --threads ${THREADS} -S . -e "DP<${DP} | MQ<${MQ} | DP4[2]<${DP4F} | DP4[3]<${DP4R} | (DP4[2]+DP4[3])/(DP4[0]+DP4[1]+DP4[2]+DP4[3])<${SUPPORT}" --soft-filter "FAILED-SNP" --mode + ${name}.vcf |
 	    variantpositionfiltering.py ${VAR_POS_NUM} |
 	    bcftools filter --threads ${THREADS} --mask-file ${REGIONS} --soft-filter "VAR-REGION" | 
-            bcftools filter -e 'FILTER="VAR-REGION"' ${name}_filtered.vcf > ${name}_filtered.vcf;
+            bcftools filter -e 'FILTER="VAR-REGION"' > ${MYPATH}/variants/${name}_filtered.vcf;
 	echo -e "\e[1;35m [@] Finished filtering variants for sample\e[0m \e[0;32m ${name} \e[0m";
     fi;
 done
