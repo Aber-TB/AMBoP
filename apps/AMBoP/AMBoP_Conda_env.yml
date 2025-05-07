@@ -1,17 +1,16 @@
-name: AMBoP_Conda_env
+name: AMBoP_env
 channels:
   - conda-forge
   - bioconda
-  - defaults
 dependencies:
-  - bwa
-  - bcftools
-  - fastqc
-  - iqtree
-  - raxml
-  - samtools
-  - snp-sites
-  - snpeff
-  - trimmomatic
-  - multiqc
-prefix: /ibers/ernie/home/jef11/miniconda3/envs/AMBoP_Conda_env
+  - bwa=0.7.17
+  - bcftools=1.17
+  - fastqc=0.11.9
+  - iqtree=2.2.0.3
+  - raxml=8.2.12
+  - samtools=1.16.1
+  - snp-sites=2.5.1
+  - snpeff=5.1
+  - trimmomatic=0.39
+  - multiqc=1.13
+

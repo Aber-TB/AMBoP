@@ -4,7 +4,7 @@
 ![splash_screen](splash_screen_AMBoP_1.6.1.PNG)
 
 ### Software and versions used:
-bcftools  1.16 | 
+bcftools  1.17 | 
 bwa  0.7.17 |
 fastqc  0.11.9 |
 iqtree  2.2.0.3 
