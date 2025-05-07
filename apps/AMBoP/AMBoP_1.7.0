@@ -5,7 +5,7 @@ CONFIG_DIR=$(pwd)
 AMBOP_DIR=$(echo ${0} | sed 's/\/apps\/AMBoP\/AMBoP_1.7.0//')
 #This is the header that will print out the welcome message. It checks for adequate input and if not, prints usage. If a user provides "example.config" an example config file will be printed to screen.
 if [ "$#" -eq 0 ]; then
-    echo -e "\e[1;35m     ___    __  _______        ____\n   /   |  /  |/  / __ )____  / __ \\n  / /| | / /|_/ / __  / __ \/ /_/ /\n / ___ |/ /  / / /_/ / /_/ / ____/ \n/_/  |_/_/  /_/_____/\____/_/      \e[0m"
+    echo -e "\e[1;35m    ___    __  _______        ____ \n   /   |  /  |/  / __ )____  / __ \\n  / /| | / /|_/ / __  / __ \/ /_/ /\n / ___ |/ /  / / /_/ / /_/ / ____/ \n/_/  |_/_/  /_/_____/\____/_/      \e[0m"
     echo "Aberystwyth M. bovis Pipeline (AMBoP)."
     echo "Version 1.7.0"
     echo "GitHub: https://github.com/Aber-TB/AMBoP"
@@ -24,7 +24,7 @@ elif [ "$1" = "example.config" ]; then
 fi
 
 #This is the start of the output file:
-echo -e "    ___    __  _______        ____\n   /   |  /  |/  / __ )____  / __ \\n  / /| | / /|_/ / __  / __ \/ /_/ /\n / ___ |/ /  / / /_/ / /_/ / ____/ \n/_/  |_/_/  /_/_____/\____/_/      "
+echo -e "\e[1;35m    ___    __  _______        ____ \n   /   |  /  |/  / __ )____  / __ \\n  / /| | / /|_/ / __  / __ \/ /_/ /\n / ___ |/ /  / / /_/ / /_/ / ____/ \n/_/  |_/_/  /_/_____/\____/_/      \e[0m"
 echo -e "Current Time: $now"
 echo -e " This is the output file for running the Aberystwyth M. bovis Pipeline (AMBoP)."
 echo -e " Output is colour and symbol coded for easy readability. To see check points, use grep \"[%]\" your.output. To see errors, use grep \"[!]\" your.output. To see advice about what to do next, use grep \"[?]\" your.output. To see some extra information about sample progress, use grep \"[@]\" your.output."
