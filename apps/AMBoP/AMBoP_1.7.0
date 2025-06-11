@@ -140,15 +140,24 @@ cd ${MYPATH}/trimmed_reads
 
 ln -s ${ADAPTERS} 2>/dev/null #symbolically link the adapter fasta file so Trimmomatic can find it.
 
-for i in $(ls ${DATAPATH}/*${FORWARDPATTERN}); do
-    file=$(echo ${i} | awk -F "/" '{print $NF}' | sed  "s/$FORWARDPATTERN/;/" $NF | sed "s/$REVERSEPATTERN/;/" $NF  | cut -d ";" -f1);    
+# First check to see if there are any samples with reverse only - this is the first time it matters and will throw an error and crash out:
+
+
+for i in $(ls ${DATAPATH}/*${FORWARDPATTERN}*); do
+    file=$(basename ${i});
+    name=${file%_${FORWARDPATTERN}*};
+    if [[ ! -s $(echo ${DATAPATH}/${name}*${REVERSEPATTERN}*) ]]; then
+ 	echo "Sample ${name} does not have a reverse read file (labelled ${REVERSEPATTERN})";
+	continue;
+    fi;
+
     #Do a quick check to see if there are any non-empty trim-paired files, like if the script has been run before to save time overwriting.
-    if [ -s ${MYPATH}/trimmed_reads/${file}_1_trim_paired.fastq.gz ] ; then 
-	echo -e "\e[1;35m [@] ${file} already trimmed.\e[0m"; 
-    else  
+    if [ -s ${MYPATH}/trimmed_reads/${file}_1_trim_paired.fastq.gz ] ; then
+	echo -e "\e[1;35m [@] ${file} already trimmed.\e[0m";
+    else
     trimmomatic PE -threads ${THREADS} \
-        ${DATAPATH}/${file}*${FORWARDPATTERN} \
-        ${DATAPATH}/${file}*${REVERSEPATTERN} \
+        ${DATAPATH}/${name}*${FORWARDPATTERN}* \
+        ${DATAPATH}/${name}*${REVERSEPATTERN}* \
         ${file}_1_trim_paired.fastq.gz \
         ${file}_1_trim_unpaired.fastq.gz \
         ${file}_2_trim_paired.fastq.gz \
